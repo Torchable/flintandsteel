@@ -61,4 +61,3 @@ def fkikbindswitch():
             cmds.connectAttr(fk + '.' + attr, bc + '.color2')
             cmds.connectAttr('*_switch' + '.FKIKSwitch', bc + '.blender')
             cmds.connectAttr(bc + '.output', bind + '.' + attr)
-CreateJoints()
