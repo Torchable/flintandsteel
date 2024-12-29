@@ -1,1 +1,116 @@
+import maya.cmds as cmds
+import importlib
+import flintandsteel.limb as faslimb
+importlib.reload(faslimb)
+
+#Window layout 
+def limb_ui():
+    # Makes sure only one window is open 
+    if cmds.window('limbCreatorUI', exists=True):
+        cmds.deleteUI('limbCreatorUI')
+
+    #window creation
+    window = cmds.window('limbCreatorUI', title='Limb Creator', width = 500, height = 540)
+
+    main_layout = cmds.columnLayout(width=500, height=540)
+
+    #add frame layouts
+    build_data_frame(window, main_layout)
+    build_arguements_frame(window, main_layout)
+    color_settings_frame(window, main_layout)
+
+    #Shows window
+    cmds.showWindow(window)
+
+# Frame setup
+def build_data_frame(window, main_layout):
+    dataframe = cmds.frameLayout(label='Build Data', width=500, height=230,
+                                 collapsable=True, parent=main_layout)
+    rcl = cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 200), (2, 200), (3, 100)],
+                               columnOffset=[(1, 'both', 5), (2, 'both', 0), (3, 'both', 5)],
+                               parent=dataframe)
+
+    #label text
+    cmds.text(label='Alias', align='left', font= 'boldLabelFont')
+    cmds.text(label='Guide', align='left', font='boldLabelFont')
+    cmds.text(label='Load', align='left', font='boldLabelFont')
+
+    arm_limb01_alias = cmds.textField(height=30, text='shoulder', parent= rcl)
+    arm_limb01_guide = cmds.textField(height=30, parent= rcl)
+    arm_limb01_load = cmds.button(label='load selected', height=30, parent= rcl)
+
+    arm_limb02_alias = cmds.textField(height=30, text='elbow', parent= rcl)
+    arm_limb02_guide = cmds.textField(height=30, parent= rcl)
+    arm_limb02_load = cmds.button(label='load selected', height=30, parent= rcl)
+
+    arm_limb03_alias = cmds.textField(height=30, text='wrist', parent= rcl)
+    arm_limb03_guide = cmds.textField(height=30, parent= rcl)
+    arm_limb03_load = cmds.button(label='load selected', height=30, parent= rcl)
+
+    arm_pv_limb01_alias = cmds.textField(height=30, text='pole vector', enable = False, parent= rcl)
+    arm_pv_limb01_guide = cmds.textField(height=30, parent= rcl)
+    arm_pv_limb01_load = cmds.button(label='load selected', height=30, parent= rcl)
+
+    cmds.text(label='Side', align='left', font= 'obliqueLabelFont', height=20, parent= rcl)
+    cmds.text(label='Part', align='left', font= 'obliqueLabelFont', height=20, parent= rcl)
+    cmds.text(label='Base Name', align='left', font= 'obliqueLabelFont', height=20, parent= rcl)
+
+    side_txt = cmds.textField(text= 'L', height=30, parent= rcl)
+    part_txt = cmds.textField(text= 'arm', height=30, parent= rcl)
+    base_txt = cmds.textField(text= 'L_arm', height=30, enable= False, parent= rcl)
+#
+def build_arguements_frame(window, main_layout):
+    argframe = cmds.frameLayout(label='Build Arguements', width=500, height=180,
+                                 collapsable=True, parent=main_layout)
+    baf_col = cmds.rowColumnLayout(numberOfColumns=1, columnWidth=[(1, 500)],
+                                   columnOffset=[(1, 'both', 0)],
+                                   parent=argframe)
+
+    prcl = cmds.rowColumnLayout(numberOfColumns=4, height=60, columnWidth=[(1, 150), (2, 110),
+                                                                           (3, 110), (4, 110)],
+                                columnOffset=[(1, 'both', 5), (2, 'both', 0),
+                                              (3, 'both', 5), (4, 'both', 5)], parent=baf_col)
+    #Setting to determine primary axis
+    cmds.text(label='Primary Axis', align='left', font= 'boldLabelFont', height=30, parent=prcl)
+    pa_col = cmds.radioCollection(nci=6, parent=prcl)
+    px = cmds.radioButton(label='X', parent= prcl)
+    py = cmds.radioButton(label='Y', parent= prcl)
+    pz = cmds.radioButton(label='Z', parent= prcl)
+    cmds.separator(style = 'none', parent = prcl)
+    pnx = cmds.radioButton(label='-X', parent= prcl)
+    pny = cmds.radioButton(label='-Y', parent= prcl)
+    pnz = cmds.radioButton(label='-Z', parent= prcl)
+    cmds.radioCollection(pa_col, edit= True, select= px)
+    cmds.separator(style = 'none', parent = baf_col)
+
+    urcl = cmds.rowColumnLayout(numberOfColumns=4, height=60, columnWidth=[(1, 150), (2, 110),
+                                                                           (3, 110), (4, 110)],
+                                columnOffset=[(1, 'both', 5), (2, 'both', 0),
+                                              (3, 'both', 5), (4, 'both', 5)], parent=baf_col)
+    cmds.text(label='Up Axis:', align='left', font= 'boldLabelFont', height=30, parent=urcl)
+
+    ua_col = cmds.radioCollection(nci=6, parent=prcl)
+    ux = cmds.radioButton(label='X', parent= urcl)
+    uy = cmds.radioButton(label='Y', parent= urcl)
+    uz = cmds.radioButton(label='Z', parent= urcl)
+    cmds.separator(style = 'none', parent = urcl)
+    unx = cmds.radioButton(label='-X', parent= urcl)
+    uny = cmds.radioButton(label='-Y', parent= urcl)
+    unz = cmds.radioButton(label='-Z', parent= urcl)
+    cmds.radioCollection(ua_col, edit= True, select= uy)
+    cmds.separator(style = 'none', parent = baf_col)
+
+    cb_grid = cmds.gridLayout(numberofColumns=2, cellWidthHeight=(250, 30), parent=baf_col)
+
+    stretch_cb = cmds.checkBox(label= '- Is Stretchy', value= True, parent= cb_grid)
+    remove_cb = cmds.checkBox(label='- removeGuides', value=True, parent=cb_grid)
+
+# Creates colors for controls
+def color_settings_frame(window, main_layout):
+    colorframe = cmds.frameLayout(label='Color Settings', width=500, height=90,
+                                 collapsable=True, parent=main_layout)
+    crcl = cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1, 250), (2, 250)],
+                               columnOffset=[(1, 'both', 5)], height= 60, parent= colorframe)
+
+    pr_color = cmds.colorSliderGrp(label='Primary', )
 
