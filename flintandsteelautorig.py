@@ -1,17 +1,19 @@
 # Flint and Steel Auto Rigger
 #
-# By Colin Cheng 
+# By Colin Cheng
 
-# Currently creates an FK IK arm when selecting a set of 3 joints 
+# Currently creates an FK IK arm when selecting a set of 3 joints
 
-# Credits to Gnomon Workshop for creating the tutorial that taught me how to do this. 
+# Credits to Gnomon Workshop for creating the tutorial that taught me how to do this.
 # I included a class containing a few lists to expand this auto rigger to beyond the arm, still a W.I.P however
 
 import maya.cmds as cmds
 import math
 import importlib
 import flintandsteel.shelfUtils as ScriptUtil
+
 importlib.reload(ScriptUtil)
+
 
 class body_dict:
     sides = ['L_', 'R_', 'C_']
@@ -23,11 +25,10 @@ class body_dict:
 
 bd = body_dict()
 
-# joint_list and pole_vector will be changed so this script can work on more than just the left arm 
-def limb(side='L', part='arm', joint_list=['L_shoulder_gde_JNT', 'L_elbow_gde_JNT', 'L_wrist_gde_JNT'],
-         alias_list= bd.arms, pole_vector='L_shoulder_pv_gde_LOC',
-         remove_guides=False, add_stretch=False, color_dict=False,
-         primary_axis='X', up_axis='Y'):
+def limb(side=bd.sides[0], part=None, joint_list= None,
+         alias_list= None, pole_vector= None,
+         remove_guides=None, add_stretch=None, color_dict=None,
+         primary_axis=None, up_axis=None):
 
     if len(joint_list) != 3:
         cmds.error('Must provide three guides to build three joint limb.')
@@ -84,7 +85,7 @@ def limb(side='L', part='arm', joint_list=['L_shoulder_gde_JNT', 'L_elbow_gde_JN
                              name=base_name + '_IK_CTRL')[0]
     cmds.setAttr(world_ctrl + '.rotate' + primary_axis[-1], 45)
     ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[world_ctrl, ik_chain[-1]],
-                  freeze=True)
+                      freeze=True)
     tag_control(world_ctrl, base_name + '_primary')
 
     local_ctrl = cmds.circle(radius=r, normal=pa, degree=1, sections=4,
@@ -92,18 +93,18 @@ def limb(side='L', part='arm', joint_list=['L_shoulder_gde_JNT', 'L_elbow_gde_JN
     cmds.setAttr(local_ctrl + '.rotate' + primary_axis[-1], 45)
     cmds.makeIdentity(local_ctrl, apply=True, rotate=True)
     local_off = ScriptUtil.align_lras(snap_align=True,
-                                  sel=[local_ctrl, ik_chain[-1]])
+                                      sel=[local_ctrl, ik_chain[-1]])
     cmds.parent(local_off, world_ctrl)
     tag_control(local_ctrl, base_name + '_secondary')
-    
-    # I don't like this, goal is to make it go beyond just locators for PV
+
+    # PV scaling + creation 
     loc_points = [[0.0, 1.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 0.0],
                   [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0],
                   [0.0, 0.0, -1.0], [0.0, 0.0, 1.0]]
     pv_ctrl = curve_control(loc_points, name=base_name + '_PV_CTRL')
     cmds.setAttr(pv_ctrl + '.scale', r * 0.25, r * 0.25, r * 0.25)
     ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[pv_ctrl, pole_vector],
-                  freeze=True)
+                      freeze=True)
     tag_control(pv_ctrl, base_name + '_pv')
 
     base_ctrl = cmds.circle(radius=r * 1.2, normal=pa, degree=1,
@@ -111,7 +112,7 @@ def limb(side='L', part='arm', joint_list=['L_shoulder_gde_JNT', 'L_elbow_gde_JN
                             name='{}_{}_IK_CTRL'.format(side, alias_list[0]))[0]
     cmds.setAttr(base_ctrl + '.rotate' + primary_axis[-1], 45)
     ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[base_ctrl, ik_chain[0]],
-                  freeze=True)
+                      freeze=True)
     cmds.parentConstraint(base_ctrl, ik_chain[0], mo=True)
     tag_control(base_ctrl, base_name + '_primary')
 
@@ -121,8 +122,8 @@ def limb(side='L', part='arm', joint_list=['L_shoulder_gde_JNT', 'L_elbow_gde_JN
                         solver='ikRPsolver', setupForRPsolver=True)[0]
     cmds.parentConstraint(local_ctrl, ikh, mo=True)
     cmds.poleVectorConstraint(pv_ctrl, ikh)
-    
-    # Again I don't like this, I'm gonna change this later to be able to use any control 
+
+    # FK IK Switch creation 
     plus_points = [[-0.333, 0.333, 0.0], [-0.333, 1.0, 0.0],
                    [0.333, 1.0, 0.0], [0.333, 0.333, 0.0],
                    [1.0, 0.333, 0.0], [1.0, -0.333, 0.0],
@@ -134,7 +135,7 @@ def limb(side='L', part='arm', joint_list=['L_shoulder_gde_JNT', 'L_elbow_gde_JN
                                   name=base_name + '_settings_CTRL')
     tag_control(settings_ctrl, base_name + '_primary')
     settings_off = ScriptUtil.align_lras(snap_align=True,
-                                     sel=[settings_ctrl, ik_chain[-1]])
+                                         sel=[settings_ctrl, ik_chain[-1]])
     cmds.setAttr(settings_ctrl + '.scale', r * 0.25, r * 0.25, r * 0.25)
     if up_axis[0] == '-':
         cmds.setAttr(settings_ctrl + '.translate' + up_axis[-1], r * -1.5)
@@ -174,7 +175,7 @@ def limb(side='L', part='arm', joint_list=['L_shoulder_gde_JNT', 'L_elbow_gde_JN
                 ik_chain[0], settings_off, limb_rig_grp)
     cmds.parent(skeleton_grp, limb_rig_grp, all_grp)
     ScriptUtil.transfer_pivots(sel=[bind_chain[0], skeleton_grp, limb_rig_grp,
-                                fk_ctrl_grp, ik_ctrl_grp])
+                                    fk_ctrl_grp, ik_ctrl_grp])
     cmds.hide(no_xform_grp, fk_chain[0], ik_chain[0], bind_chain[0])
 
     # compensate for global scale
@@ -227,7 +228,11 @@ def limb(side='L', part='arm', joint_list=['L_shoulder_gde_JNT', 'L_elbow_gde_JN
     # remove guide joints
     if remove_guides:
         cmds.delete(joint_list, pole_vector)
-        
+
+
+def pole_vector(pv_name):
+    pv_name = bd.sides[1] + bd.arms[0] + '*_PV)_CTRL'
+
 
 def add_guide(start, end):
     start_pos = cmds.xform(start, query=True, worldSpace=True, rotatePivot=True)
@@ -286,7 +291,7 @@ def add_ik_stretch(side, part, ik_chain, base_ctrl, local_ctrl, world_ctrl,
     cmds.connectAttr(start_loc + '.worldMatrix[0]', limb_dist + '.inMatrix1')
     cmds.connectAttr(end_loc + '.worldMatrix[0]', limb_dist + '.inMatrix2')
 
-    # Calculate length ratio
+    # calculate length ratio
     cmds.connectAttr(limb_dist + '.distance', stretch_mdn + '.input1X')
     cmds.setAttr(stretch_mdn + '.input2X', length_total)
     cmds.setAttr(stretch_mdn + '.operation', 2)
@@ -296,7 +301,7 @@ def add_ik_stretch(side, part, ik_chain, base_ctrl, local_ctrl, world_ctrl,
     cmds.setAttr(limb_cnd + '.secondTerm', length_total)
     cmds.setAttr(limb_cnd + '.operation', 3)
 
-    # add toggle for stretch
+    # add on/off for stretch
     cmds.addAttr(world_ctrl, attributeType='double', min=0, max=1,
                  defaultValue=1, keyable=True, longName='stretch')
     up_name = 'up' + part.title()
@@ -398,6 +403,14 @@ def create_chain(side, joint_list, alias_list, suffix):
     return chain
 
 
+# Checks distance between point A and point B
+def distance_between(node_a, node_b):
+    point_a = cmds.xform(node_a, query=True, worldSpace=True, rotatePivot=True)
+    point_b = cmds.xform(node_b, query=True, worldSpace=True, rotatePivot=True)
+
+    dist = math.sqrt(sum([pow((b - a), 2) for b, a in zip(point_b, point_a)]))
+    return dist
+
 def define_axis(axis):
     if axis[-1] == 'X':
         vector_axis = (1, 0, 0)
@@ -411,11 +424,3 @@ def define_axis(axis):
     if '-' in axis:
         vector_axis = tuple(va * -1 for va in vector_axis)
     return vector_axis
-
-# Checks distance between point A and point B
-def distance_between(node_a, node_b):
-    point_a = cmds.xform(node_a, query=True, worldSpace=True, rotatePivot=True)
-    point_b = cmds.xform(node_b, query=True, worldSpace=True, rotatePivot=True)
-
-    dist = math.sqrt(sum([pow((b - a), 2) for b, a in zip(point_b, point_a)]))
-    return dist
