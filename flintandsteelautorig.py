@@ -10,6 +10,7 @@
 import maya.cmds as cmds
 import math
 import importlib
+import maya.mel as mm
 import flintandsteel.shelfUtils as ScriptUtil
 
 importlib.reload(ScriptUtil)
@@ -143,7 +144,7 @@ def limb(side=bd.sides[0], part=None, joint_list= None,
         cmds.setAttr(settings_ctrl + '.translate' + up_axis[-1], r * 1.5)
     cmds.makeIdentity(settings_ctrl, apply=True, translate=True, rotate=True,
                       scale=True, normal=False)
-    cmds.parentConstraint(bind_chain[-1], settings_ctrl, mo=True)
+    cmds.pointConstraint(bind_chain[-1], settings_ctrl, mo=True)
 
     cmds.addAttr(settings_ctrl, attributeType='double', min=0, max=1,
                  defaultValue=1, keyable=True, longName='fkIk')
@@ -231,7 +232,7 @@ def limb(side=bd.sides[0], part=None, joint_list= None,
 
 
 def pole_vector(pv_name):
-    pv_name = bd.sides[1] + bd.arms[0] + '*_PV)_CTRL'
+    pv_name = bd.sides[1] + bd.arms[0] + '*_PV_CTRL'
 
 
 def add_guide(start, end):
