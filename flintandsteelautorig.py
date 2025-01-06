@@ -4,7 +4,7 @@
 
 # Currently creates an FK IK arm when selecting a set of 3 joints
 
-# Credits to Gnomon Workshop for creating the tutorial that taught me how to do this.
+# Credits to Gnomon Workshop for creating the tutorial that taught me how to start this.
 # I included a class containing a few lists to expand this auto rigger to beyond the arm, still a W.I.P however
 
 import maya.cmds as cmds
