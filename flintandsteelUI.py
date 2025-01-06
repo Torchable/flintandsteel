@@ -1,427 +1,270 @@
-# Flint and Steel Auto Rigger
-#
-# By Colin Cheng
-
-# Currently creates an FK IK arm when selecting a set of 3 joints
-
-# Credits to Gnomon Workshop for creating the tutorial that taught me how to do this.
-# I included a class containing a few lists to expand this auto rigger to beyond the arm, still a W.I.P however
-
 import maya.cmds as cmds
-import math
 import importlib
-import maya.mel as mm
-import flintandsteel.shelfUtils as ScriptUtil
+import flintandsteel.limb as faslimb
 
-importlib.reload(ScriptUtil)
-
-
-class body_dict:
-    sides = ['L_', 'R_', 'C_']
-    arms = ['shoulder', 'elbow', 'wrist']
-    legs = ['thigh', 'knee', 'ankle', 'foot', 'toe']
-    spine = ['spine', 'pelvis', 'chest']
-    hands = ['hand', 'thumb', 'index', 'middle', 'ring', 'pinky']
-    neck = ['neck', 'head']
-
-bd = body_dict()
-
-def limb(side=bd.sides[0], part=None, joint_list= None,
-         alias_list= None, pole_vector= None,
-         remove_guides=None, add_stretch=None, color_dict=None,
-         primary_axis=None, up_axis=None):
-
-    if len(joint_list) != 3:
-        cmds.error('Must provide three guides to build three joint limb.')
-        print('error 1 works')
-
-    if len(alias_list) != 3:
-        cmds.error('Must provide three aliases, one for each joint.')
-        print('error 2 works')
-
-    if not pole_vector:
-        cmds.error('Must provide a pole vector guide.')
-        print('error 3 works')
-
-    pa = define_axis(primary_axis)
-    ua = define_axis(up_axis)
-
-    # naming convention for limb
-    base_name = side + '_' + part
-
-    # creates the FK, IK, bind chain
-    ik_chain = create_chain(side, joint_list, alias_list, 'IK')
-    fk_chain = create_chain(side, joint_list, alias_list, 'FK')
-    bind_chain = create_chain(side, joint_list, alias_list, 'bind')
-
-    # optimize control size by using a fraction of the start-to-end length
-    r = distance_between(fk_chain[0], fk_chain[-1]) / float(5)
-
-    # create FK controls and connect to fk joint chain
-    fk_ctrls = []
-    for i, alias in enumerate(alias_list):
-        # create FK controls
-        ctrl = cmds.circle(radius=r, normal=pa, degree=3,
-                           name='{}_{}_FK_CTRL'.format(side, alias))[0]
-        tag_control(ctrl, base_name + '_fk')
-        if i != 0:
-            # parent to previous control
-            cmds.parent(ctrl, par)
-
-        # align control to joint
-        ctrl_off = ScriptUtil.align_lras(snap_align=True, sel=[ctrl, fk_chain[i]])
-        if i == 0:
-            fk_top_grp = ctrl_off
-
-        # define parent control to be used in iterations after the first one
-        par = ctrl
-        # connect control to joint
-        cmds.pointConstraint(ctrl, fk_chain[i])
-        cmds.connectAttr(ctrl + '.rotate', fk_chain[i] + '.rotate')
-        fk_ctrls.append(ctrl)
-
-    # create IK controls
-    world_ctrl = cmds.circle(radius=r * 1.2, normal=pa, degree=1, sections=4,
-                             constructionHistory=False,
-                             name=base_name + '_IK_CTRL')[0]
-    cmds.setAttr(world_ctrl + '.rotate' + primary_axis[-1], 45)
-    ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[world_ctrl, ik_chain[-1]],
-                      freeze=True)
-    tag_control(world_ctrl, base_name + '_primary')
-
-    local_ctrl = cmds.circle(radius=r, normal=pa, degree=1, sections=4,
-                             name=base_name + '_local_IK_CTRL')[0]
-    cmds.setAttr(local_ctrl + '.rotate' + primary_axis[-1], 45)
-    cmds.makeIdentity(local_ctrl, apply=True, rotate=True)
-    local_off = ScriptUtil.align_lras(snap_align=True,
-                                      sel=[local_ctrl, ik_chain[-1]])
-    cmds.parent(local_off, world_ctrl)
-    tag_control(local_ctrl, base_name + '_secondary')
-
-    # PV scaling + creation 
-    loc_points = [[0.0, 1.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 0.0],
-                  [-1.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0],
-                  [0.0, 0.0, -1.0], [0.0, 0.0, 1.0]]
-    pv_ctrl = curve_control(loc_points, name=base_name + '_PV_CTRL')
-    cmds.setAttr(pv_ctrl + '.scale', r * 0.25, r * 0.25, r * 0.25)
-    ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[pv_ctrl, pole_vector],
-                      freeze=True)
-    tag_control(pv_ctrl, base_name + '_pv')
-
-    base_ctrl = cmds.circle(radius=r * 1.2, normal=pa, degree=1,
-                            sections=4, constructionHistory=False,
-                            name='{}_{}_IK_CTRL'.format(side, alias_list[0]))[0]
-    cmds.setAttr(base_ctrl + '.rotate' + primary_axis[-1], 45)
-    ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[base_ctrl, ik_chain[0]],
-                      freeze=True)
-    cmds.parentConstraint(base_ctrl, ik_chain[0], mo=True)
-    tag_control(base_ctrl, base_name + '_primary')
-
-    # create IKH
-    ikh = cmds.ikHandle(name=base_name + 'IK_HDL', startJoint=ik_chain[0],
-                        endEffector=ik_chain[-1], sticky='sticky',
-                        solver='ikRPsolver', setupForRPsolver=True)[0]
-    cmds.parentConstraint(local_ctrl, ikh, mo=True)
-    cmds.poleVectorConstraint(pv_ctrl, ikh)
-
-    # FK IK Switch creation 
-    plus_points = [[-0.333, 0.333, 0.0], [-0.333, 1.0, 0.0],
-                   [0.333, 1.0, 0.0], [0.333, 0.333, 0.0],
-                   [1.0, 0.333, 0.0], [1.0, -0.333, 0.0],
-                   [0.333, -0.333, 0.0], [0.333, -1.0, 0.0],
-                   [-0.333, -1.0, 0.0], [-0.333, -0.333, 0.0],
-                   [-1.0, -0.333, 0.0], [-1.0, 0.333, 0.0],
-                   [-0.333, 0.333, 0.0]]
-    settings_ctrl = curve_control(point_list=plus_points,
-                                  name=base_name + '_settings_CTRL')
-    tag_control(settings_ctrl, base_name + '_primary')
-    settings_off = ScriptUtil.align_lras(snap_align=True,
-                                         sel=[settings_ctrl, ik_chain[-1]])
-    cmds.setAttr(settings_ctrl + '.scale', r * 0.25, r * 0.25, r * 0.25)
-    if up_axis[0] == '-':
-        cmds.setAttr(settings_ctrl + '.translate' + up_axis[-1], r * -1.5)
-    else:
-        cmds.setAttr(settings_ctrl + '.translate' + up_axis[-1], r * 1.5)
-    cmds.makeIdentity(settings_ctrl, apply=True, translate=True, rotate=True,
-                      scale=True, normal=False)
-    cmds.pointConstraint(bind_chain[-1], settings_ctrl, mo=True)
-
-    cmds.addAttr(settings_ctrl, attributeType='double', min=0, max=1,
-                 defaultValue=1, keyable=True, longName='fkIk')
-
-    # fk/ik switch with blend color nodes
-    blend_chains(base_name, ik_chain, fk_chain, bind_chain)
-
-    # add stretch
-    no_xform_list = [ikh]
-    if add_stretch:
-        ik_stretch = add_ik_stretch(side, part, ik_chain, base_ctrl, local_ctrl,
-                                    world_ctrl, primary_axis)
-        add_fk_stretch(fk_ctrls, fk_chain, primary_axis)
-        no_xform_list += ik_stretch['measure_locs']
-
-    # organize
-    fk_ctrl_grp = cmds.group(em=True, name=base_name + '_FK_CTRL_GRP')
-    ik_ctrl_grp = cmds.group(em=True, name=base_name + '_IK_CTRL_GRP')
-    skeleton_grp = cmds.group(em=True, name=base_name + '_skeleton_GRP')
-    no_xform_grp = cmds.group(em=True, name=base_name + '_noXform_GRP')
-    limb_rig_grp = cmds.group(em=True, name=base_name + '_rig_GRP')
-    all_grp = cmds.group(em=True, name=base_name.upper())
-
-    cmds.parent(world_ctrl, pv_ctrl, base_ctrl, ik_ctrl_grp)
-    cmds.parent(fk_top_grp, fk_ctrl_grp)
-    cmds.parent(bind_chain[0], skeleton_grp)
-    cmds.parent(no_xform_list, no_xform_grp)
-    cmds.parent(fk_ctrl_grp, ik_ctrl_grp, no_xform_grp, fk_chain[0],
-                ik_chain[0], settings_off, limb_rig_grp)
-    cmds.parent(skeleton_grp, limb_rig_grp, all_grp)
-    ScriptUtil.transfer_pivots(sel=[bind_chain[0], skeleton_grp, limb_rig_grp,
-                                    fk_ctrl_grp, ik_ctrl_grp])
-    cmds.hide(no_xform_grp, fk_chain[0], ik_chain[0], bind_chain[0])
-
-    # compensate for global scale
-    cmds.addAttr(all_grp, attributeType='double', min=0.001, defaultValue=1,
-                 keyable=True, longName='globalScale')
-    [cmds.connectAttr(all_grp + '.globalScale',
-                      all_grp + '.scale' + axis) for axis in 'XYZ']
-    if add_stretch:
-        gs_mdl = cmds.createNode('multDoubleLinear',
-                                 name=base_name + '_globalScale_MDL')
-        cmds.setAttr(gs_mdl + '.input1', ik_stretch['length_total'])
-        cmds.connectAttr(all_grp + '.globalScale', gs_mdl + '.input2')
-        cmds.connectAttr(gs_mdl + '.output', ik_stretch['mdn'] + '.input2X')
-        cmds.connectAttr(gs_mdl + '.output', ik_stretch['cnd'] + '.secondTerm')
-
-    # finalize
-    if not color_dict:
-        color_dict = {base_name + '_primary': [1, 1, 0],
-                      base_name + '_pv': [0, 1, 1],
-                      base_name + '_fk': [0, 0, 1],
-                      base_name + '_secondary': [0, 0.2, 1]}
-
-    for color_tag in cmds.ls(side + '*.controlType'):
-        ctrl = color_tag.split('.')[0]
-        ctrl_type = cmds.getAttr(color_tag)
-        if base_name in ctrl_type:
-            cmds.setAttr(ctrl + '.overrideEnabled', 1)
-            cmds.setAttr(ctrl + '.overrideRGBColors', 1)
-            cmds.setAttr(ctrl + '.overrideColorRGB',
-                         color_dict[ctrl_type][0], color_dict[ctrl_type][1],
-                         color_dict[ctrl_type][2])
-
-    # Lock and hide attributes
-    lock_and_hide(fk_ctrls, attribute_list=['translate', 'scale', 'visibility'])
-    lock_and_hide([world_ctrl, local_ctrl, base_ctrl],
-                  attribute_list=['scale', 'visibility'])
-    lock_and_hide(pv_ctrl, attribute_list=['rotate', 'scale', 'visibility'])
-    lock_and_hide(settings_ctrl)
-
-    # toggle fk/ik visibility
-    vis_rev = cmds.createNode('reverse', name=base_name + '_fkIk_vis_REV')
-    cmds.connectAttr(settings_ctrl + '.fkIk', vis_rev + '.inputX')
-    cmds.connectAttr(settings_ctrl + '.fkIk', ik_ctrl_grp + '.visibility')
-    cmds.connectAttr(vis_rev + '.outputX', fk_ctrl_grp + '.visibility')
-
-    pv_gde = add_guide(pv_ctrl, ik_chain)
-    cmds.parent(pv_gde[0], no_xform_grp)
-    cmds.parent(pv_gde[1], ik_ctrl_grp)
-
-    # remove guide joints
-    if remove_guides:
-        cmds.delete(joint_list, pole_vector)
+importlib.reload(faslimb)
 
 
-def pole_vector(pv_name):
-    pv_name = bd.sides[1] + bd.arms[0] + '*_PV_CTRL'
+def limb_ui():
+    # Makes sure only one window is open 
+    if cmds.window('limbCreatorUI', exists=True):
+        cmds.deleteUI('limbCreatorUI')
+
+    # window creation
+    window = cmds.window('limbCreatorUI', title='Limb Creator', width=500, height=540)
+
+    main_layout = cmds.columnLayout(width=500, height=540)
+
+    # add frame layouts
+    data_dict = build_data_frame(window, main_layout)
+    arg_dict = build_arguements_frame(window, main_layout)
+    color_dict = color_settings_frame(window, main_layout)
+
+    command_dict = data_dict.copy()
+    command_dict.update(arg_dict)
+    command_dict.update(color_dict)
+
+    # Build function / Close window
+    button_grid(window, main_layout, command_dict)
+
+    # Shows window
+    cmds.showWindow(window)
 
 
-def add_guide(start, end):
-    start_pos = cmds.xform(start, query=True, worldSpace=True, rotatePivot=True)
-    end_pos = cmds.xform(end, query=True, worldSpace=True, rotatePivot=True)
-
-    gde = curve_control([start_pos, end_pos], name=start + '_GDE')
-    start_cls = cmds.cluster(gde + '.cv[0]', name=start + '_CLS')[1]
-    end_cls = cmds.cluster(gde + '.cv[1]', name=end + '_CLS')[1]
-    cmds.pointConstraint(start, start_cls)
-    cmds.pointConstraint(end, end_cls)
-    cmds.setAttr(gde + '.template', True)
-    cmds.setAttr(gde + '.inheritsTransform', False)
-
-    return [[start_cls, end_cls], gde]
-
-
-def curve_control(point_list, name, degree=1):
-    crv = cmds.curve(degree=degree, editPoint=point_list, name=name)
-    shp = cmds.listRelatives(crv, shapes=True)[0]
-    cmds.rename(shp, crv + 'Shape')
-    return crv
+def joint_frame(bd):
+    for i in range(2):
+        for key, value in bd:
+            x = 0
+            y = 0
+            z = 2
+            for item in value:
+                if item in bd.arms:
+                    cmds.joint(n=bd.sides[y] + bd.arms[x] + '_JNT')
+                    x = x + 1
+                elif item in bd.legs:
+                    cmds.joint(n=bd.sides[y] + bd.legs[x] + '_JNT')
+                    x = x + 1
+                elif item in bd.spine:
+                    cmds.joint(n=bd.sides[z] + bd.spine[x] + '_JNT')
+                    x = x + 1
 
 
-def blend_chains(base_name, ik_chain, fk_chain, bind_chain):
-    # hook up switching
-    for ik, fk, bind in zip(ik_chain, fk_chain, bind_chain):
-        for attr in ['translate', 'rotate', 'scale']:
-            bcn = cmds.createNode('blendColors',
-                                  name=bind.replace('bind_JNT', attr + '_BCN'))
-            cmds.connectAttr(ik + '.' + attr, bcn + '.color1')
-            cmds.connectAttr(fk + '.' + attr, bcn + '.color2')
-            cmds.connectAttr(base_name + '_settings_CTRL.fkIk', bcn + '.blender')
-            cmds.connectAttr(bcn + '.output', bind + '.' + attr)
+# Frame setup
+def build_data_frame(window, main_layout):
+    dataframe = cmds.frameLayout(label='Build Data', width=500, height=230,
+                                 collapsable=True, parent=main_layout,
+                                 collapseCommand=lambda: collapse(window, dataframe, 230),
+                                 expandCommand=lambda: expand(window, dataframe, 230))
+    rcl = cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 200), (2, 200), (3, 100)],
+                               columnOffset=[(1, 'both', 5), (2, 'both', 0), (3, 'both', 5)],
+                               parent=dataframe)
 
+    # label text
+    cmds.text(label='Alias', align='left', font='boldLabelFont')
+    cmds.text(label='Guide', align='left', font='boldLabelFont')
+    cmds.text(label='Load', align='left', font='boldLabelFont')
 
-def add_ik_stretch(side, part, ik_chain, base_ctrl, local_ctrl, world_ctrl,
-                   primary_axis):
-    base_name = side + '_' + part
+    arm_limb01_alias = cmds.textField(height=30, text='shoulder', parent=rcl)
+    arm_limb01_guide = cmds.textField(height=30, parent=rcl)
+    arm_limb01_load = cmds.button(label='load selected', height=30, parent=rcl, c=lambda x: sel_load(arm_limb01_guide))
 
-    # create measure nodes for stretch
-    limb_dist = cmds.createNode('distanceBetween', name=base_name + '_DST')
-    limb_cnd = cmds.createNode('condition', name=base_name + '_CND')
-    start_loc = cmds.spaceLocator(name=base_name + '_start_LOC')[0]
-    end_loc = cmds.spaceLocator(name=base_name + '_end_LOC')[0]
-    stretch_mdn = cmds.createNode('multiplyDivide',
-                                  name=base_name + '_stretch_MDN')
+    arm_limb02_alias = cmds.textField(height=30, text='elbow', parent=rcl)
+    arm_limb02_guide = cmds.textField(height=30, parent=rcl)
+    arm_limb02_load = cmds.button(label='load selected', height=30, parent=rcl, c=lambda x: sel_load(arm_limb02_guide))
 
-    # calculate length
-    length_a = distance_between(ik_chain[0], ik_chain[1])
-    length_b = distance_between(ik_chain[1], ik_chain[2])
-    length_total = length_a + length_b
+    arm_limb03_alias = cmds.textField(height=30, text='wrist', parent=rcl)
+    arm_limb03_guide = cmds.textField(height=30, parent=rcl)
+    arm_limb03_load = cmds.button(label='load selected', height=30, parent=rcl, c=lambda x: sel_load(arm_limb03_guide))
 
-    # measure limb length
-    cmds.pointConstraint(base_ctrl, start_loc, maintainOffset=False)
-    cmds.pointConstraint(local_ctrl, end_loc, maintainOffset=False)
-    cmds.connectAttr(start_loc + '.worldMatrix[0]', limb_dist + '.inMatrix1')
-    cmds.connectAttr(end_loc + '.worldMatrix[0]', limb_dist + '.inMatrix2')
+    arm_pv_limb01_alias = cmds.textField(height=30, text='pole vector', enable=False, parent=rcl)
+    arm_pv_limb01_guide = cmds.textField(height=30, parent=rcl)
+    arm_pv_limb01_load = cmds.button(label='load selected', height=30, parent=rcl,
+                                     c=lambda x: sel_load(arm_pv_limb01_guide))
 
-    # calculate length ratio
-    cmds.connectAttr(limb_dist + '.distance', stretch_mdn + '.input1X')
-    cmds.setAttr(stretch_mdn + '.input2X', length_total)
-    cmds.setAttr(stretch_mdn + '.operation', 2)
+    cmds.text(label='Side', align='left', font='obliqueLabelFont', height=20, parent=rcl)
+    cmds.text(label='Part', align='left', font='obliqueLabelFont', height=20, parent=rcl)
+    cmds.text(label='Base Name', align='left', font='obliqueLabelFont', height=20, parent=rcl)
 
-    cmds.connectAttr(limb_dist + '.distance', limb_cnd + '.firstTerm')
-    cmds.connectAttr(stretch_mdn + '.outputX', limb_cnd + '.colorIfTrueR')
-    cmds.setAttr(limb_cnd + '.secondTerm', length_total)
-    cmds.setAttr(limb_cnd + '.operation', 3)
+    side_txt = cmds.textField(text=None, height=30, parent=rcl)
+    part_txt = cmds.textField(text=None, height=30, parent=rcl)
+    base_txt = cmds.textField(text=None, height=30, enable=False, parent=rcl)
 
-    # add on/off for stretch
-    cmds.addAttr(world_ctrl, attributeType='double', min=0, max=1,
-                 defaultValue=1, keyable=True, longName='stretch')
-    up_name = 'up' + part.title()
-    lo_name = 'lo' + part.title()
-    cmds.addAttr(world_ctrl, attributeType='double', min=0.001, defaultValue=1,
-                 keyable=True, longName=up_name)
-    cmds.addAttr(world_ctrl, attributeType='double', min=0.001, defaultValue=1,
-                 keyable=True, longName=lo_name)
-    stretch_bta = cmds.createNode('blendTwoAttr',
-                                  name=base_name + '_stretch_BTA')
-    cmds.setAttr(stretch_bta + '.input[0]', 1)
-    cmds.connectAttr(limb_cnd + '.outColorR', stretch_bta + '.input[1]')
-    cmds.connectAttr(world_ctrl + '.stretch',
-                     stretch_bta + '.attributesBlender')
-    up_pma = cmds.createNode('plusMinusAverage', name=up_name + '_PMA')
-    lo_pma = cmds.createNode('plusMinusAverage', name=lo_name + '_PMA')
-    cmds.connectAttr(world_ctrl + '.' + up_name, up_pma + '.input1D[0]')
-    cmds.connectAttr(world_ctrl + '.' + lo_name, lo_pma + '.input1D[0]')
-    cmds.connectAttr(stretch_bta + '.output', up_pma + '.input1D[1]')
-    cmds.connectAttr(stretch_bta + '.output', lo_pma + '.input1D[1]')
-    cmds.setAttr(up_pma + '.input1D[2]', -1)
-    cmds.setAttr(lo_pma + '.input1D[2]', -1)
+    cmds.textField(side_txt, edit=True,
+                   changeCommand=lambda x: change_base_name(side_txt, part_txt, base_txt))
+    cmds.textField(part_txt, edit=True,
+                   changeCommand=lambda x: change_base_name(side_txt, part_txt, base_txt))
 
-    cmds.connectAttr(up_pma + '.output1D',
-                     ik_chain[0] + '.scale' + primary_axis[-1])
-    cmds.connectAttr(lo_pma + '.output1D',
-                     ik_chain[1] + '.scale' + primary_axis[-1])
-
-    # return dictionary to pass arguments into other function
-    return_dict = {'measure_locs': [start_loc, end_loc],
-                   'length_total': length_total,
-                   'mdn': stretch_mdn,
-                   'cnd': limb_cnd}
+    return_dict = {'side': side_txt,
+                   'part': part_txt,
+                   'joint_list': [arm_limb01_guide, arm_limb02_guide, arm_limb03_guide],
+                   'alias_list': [arm_limb01_alias, arm_limb02_alias, arm_limb03_alias],
+                   'pole_vector': [arm_pv_limb01_guide]}
 
     return return_dict
 
 
-def add_fk_stretch(fk_ctrls, fk_chain, primary_axis):
-    for i, ctrl in enumerate(fk_ctrls):
-        if not ctrl == fk_ctrls[-1]:
-            cmds.addAttr(ctrl, attributeType='double', min=0.001,
-                         defaultValue=1, keyable=True, longName='stretch')
-            mdl = cmds.createNode('multDoubleLinear',
-                                  name=ctrl.replace('CTRL', '_stretch_MDL'))
-            loc = cmds.spaceLocator(name=fk_chain[i + 1].replace(
-                'JNT', 'OFF_LOC'))[0]
-            cmds.parent(loc, fk_chain[i])
-            ScriptUtil.a_to_b(sel=[loc, fk_chain[i + 1]])
-            offset_val = cmds.getAttr(loc + '.translate' + primary_axis[-1])
-            cmds.setAttr(mdl + '.input1', offset_val)
-            cmds.connectAttr(ctrl + '.stretch', mdl + '.input2')
-            cmds.connectAttr(mdl + '.output',
-                             loc + '.translate' + primary_axis[-1])
-            cmds.connectAttr(ctrl + '.stretch',
-                             fk_chain[i] + '.scale' + primary_axis[-1])
-            if cmds.objExists(fk_ctrls[i + 1] + '.offsetParentMatrix'):
-                cmds.connectAttr(loc + '.matrix',
-                                 fk_ctrls[i + 1] + '.offsetParentMatrix')
-            else:
-                dcm = cmds.createNode('decomposeMatrix', name=loc + '_DCM')
-                cmds.connectAttr(loc + '.matrix', dcm + '.inputMatrix')
-                for attr in ['translate', 'rotate', 'scale']:
-                    cmds.connectAttr(dcm + '.output' + attr.title(),
-                                     fk_ctrls[i + 1] + '_OFF_GRP.' + attr)
+def build_arguements_frame(window, main_layout):
+    argframe = cmds.frameLayout(label='Build Arguements', width=500, height=180,
+                                collapsable=True, parent=main_layout,
+                                collapseCommand=lambda: collapse(window, argframe, 180),
+                                expandCommand=lambda: expand(window, argframe, 180))
+
+    baf_col = cmds.rowColumnLayout(numberOfColumns=1, columnWidth=[(1, 500)],
+                                   columnOffset=[(1, 'both', 0)],
+                                   parent=argframe)
+
+    prcl = cmds.rowColumnLayout(numberOfColumns=4, height=60, columnWidth=[(1, 150), (2, 110),
+                                                                           (3, 110), (4, 110)],
+                                columnOffset=[(1, 'both', 5), (2, 'both', 0),
+                                              (3, 'both', 5), (4, 'both', 5)], parent=baf_col)
+    # Setting to determine primary axis
+    cmds.text(label='Primary Axis', align='left', font='boldLabelFont', height=30, parent=prcl)
+    pa_col = cmds.radioCollection(nci=6, parent=prcl)
+    px = cmds.radioButton(label='X', parent=prcl)
+    py = cmds.radioButton(label='Y', parent=prcl)
+    pz = cmds.radioButton(label='Z', parent=prcl)
+    cmds.separator(style='none', parent=prcl)
+    pnx = cmds.radioButton(label='-X', parent=prcl)
+    pny = cmds.radioButton(label='-Y', parent=prcl)
+    pnz = cmds.radioButton(label='-Z', parent=prcl)
+    cmds.radioCollection(pa_col, edit=True, select=px)
+    cmds.separator(style='none', parent=baf_col)
+
+    urcl = cmds.rowColumnLayout(numberOfColumns=4, height=60, columnWidth=[(1, 150), (2, 110),
+                                                                           (3, 110), (4, 110)],
+                                columnOffset=[(1, 'both', 5), (2, 'both', 0),
+                                              (3, 'both', 5), (4, 'both', 5)], parent=baf_col)
+    cmds.text(label='Up Axis:', align='left', font='boldLabelFont', height=30, parent=urcl)
+
+    ua_col = cmds.radioCollection(nci=6, parent=prcl)
+    ux = cmds.radioButton(label='X', parent=urcl)
+    uy = cmds.radioButton(label='Y', parent=urcl)
+    uz = cmds.radioButton(label='Z', parent=urcl)
+    cmds.separator(style='none', parent=urcl)
+    unx = cmds.radioButton(label='-X', parent=urcl)
+    uny = cmds.radioButton(label='-Y', parent=urcl)
+    unz = cmds.radioButton(label='-Z', parent=urcl)
+    cmds.radioCollection(ua_col, edit=True, select=uy)
+    cmds.separator(style='none', parent=baf_col)
+
+    cb_grid = cmds.gridLayout(numberOfColumns=2, cellWidthHeight=(250, 30), parent=baf_col)
+
+    stretch_cb = cmds.checkBox(label='- Is Stretchy', value=True, parent=cb_grid)
+    remove_cb = cmds.checkBox(label='- removeGuides', value=True, parent=cb_grid)
+
+    return_dict = {'primary_axis': pa_col,
+                   'up_axis': ua_col,
+                   'remove_guides': remove_cb,
+                   'add_stretch': stretch_cb,
+                   'remove_stretch': remove_cb}
+    return return_dict
 
 
-def tag_control(ctrl, tag_name):
-    cmds.addAttr(ctrl, ln='controlType', dataType='string')
-    cmds.setAttr(ctrl + '.controlType', tag_name, type='string')
+# Creates colors for controls
+def color_settings_frame(window, main_layout):
+    colorframe = cmds.frameLayout(label='Color Settings', width=500, height=90,
+                                  collapsable=True, parent=main_layout,
+                                  collapseCommand=lambda: collapse(window, colorframe, 90),
+                                  expandCommand=lambda: expand(window, colorframe, 90))
+
+    crcl = cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1, 250), (2, 250)],
+                                columnOffset=[(1, 'both', 5)], height=60, parent=colorframe)
+
+    pr_color = cmds.colorSliderGrp(label='Primary:', adjustableColumn=3, height=30, columnWidth3=[60, 40, 150],
+                                   columnAlign3=['right', 'left', 'left'], rgb=(1, 1, 0), parent=crcl)
+
+    fk_color = cmds.colorSliderGrp(label='FK:', adjustableColumn=3, height=30, columnWidth3=[60, 40, 150],
+                                   columnAlign3=['right', 'left', 'left'], rgb=(0, 0, 1), parent=crcl)
+
+    sc_color = cmds.colorSliderGrp(label='Secondary:', adjustableColumn=3, height=30, columnWidth3=[60, 40, 150],
+                                   columnAlign3=['right', 'left', 'left'], rgb=(0, .2, 1), parent=crcl)
+
+    pv_color = cmds.colorSliderGrp(label='PV:', adjustableColumn=3, height=30, columnWidth3=[60, 40, 150],
+                                   columnAlign3=['right', 'left', 'left'], rgb=(0, 1, 1), parent=crcl)
+
+    return_dict = {'primary': pr_color,
+                   'pv': pv_color,
+                   'fk': fk_color,
+                   'secondary': sc_color}
+
+    return return_dict
 
 
-def lock_and_hide(nodes, attribute_list=None):
-    if not attribute_list:
-        attribute_list = ['translate', 'rotate', 'scale', 'visibility']
+def button_grid(window, main_layout, command_dict):
+    btn_col = cmds.rowColumnLayout(numberOfColumns=1, columnWidth=[(1, 500)],
+                                   columnOffset=[(1, 'both', 0)], parent=main_layout)
 
-    if not isinstance(nodes, list):
-        nodes = [nodes]
+    grid_layout = cmds.gridLayout(numberOfColumns=2, cellWidthHeight=(250, 40), parent=btn_col)
 
-    for node in nodes:
-        for attr in attribute_list:
-            if any(t == attr for t in ['translate', 'rotate', 'scale']):
-                [cmds.setAttr(node + '.' + attr + axis,
-                              lock=True, keyable=False) for axis in 'XYZ']
-            else:
-                cmds.setAttr(node + '.' + attr, lock=True, keyable=False)
+    build_btn = cmds.button(label='Build Limb', height=40, parent=grid_layout,
+                            command=lambda x: build_limb_command(command_dict))
+    close_btn = cmds.button(label='Close Window', height=40, parent=grid_layout,
+                            command=lambda x: cmds.deleteUI(window))
 
 
-def create_chain(side, joint_list, alias_list, suffix):
-    chain = []
-    for j, a in zip(joint_list, alias_list):
-        if j == joint_list[0]:
-            par = None
-        else:
-            par = jnt
-        jnt = cmds.joint(par, n='{}_{}_{}_JNT'.format(side, a, suffix))
-        ScriptUtil.a_to_b(sel=[jnt, j], freeze=True)
-        chain.append(jnt)
-
-    return chain
+def sel_load(text_field):
+    sel = cmds.ls(sl=True)
+    if len(sel):
+        cmds.textField(text_field, e=True, text=sel[0])
 
 
-# Checks distance between point A and point B
-def distance_between(node_a, node_b):
-    point_a = cmds.xform(node_a, query=True, worldSpace=True, rotatePivot=True)
-    point_b = cmds.xform(node_b, query=True, worldSpace=True, rotatePivot=True)
+def change_base_name(side_txt, part_txt, base_txt):
+    side = cmds.textField(side_txt, query=True, text=True)
+    part = cmds.textField(part_txt, query=True, text=True)
+    cmds.textField(base_txt, edit= True, text=side + '_' + part)
 
-    dist = math.sqrt(sum([pow((b - a), 2) for b, a in zip(point_b, point_a)]))
-    return dist
 
-def define_axis(axis):
-    if axis[-1] == 'X':
-        vector_axis = (1, 0, 0)
-    elif axis[-1] == 'Y':
-        vector_axis = (0, 1, 0)
-    elif axis[-1] == 'Z':
-        vector_axis = (0, 0, 1)
-    else:
-        cmds.error('Must provide either X, Y, or Z for the axis.')
+# Collapsing tab frames
+def collapse(window, frame_layout, height):
+    window_height = cmds.window(window, query=True, height=True)
+    frame_height = cmds.frameLayout(frame_layout, query=True, height=True)
+    cmds.window(window, edit=True, height=window_height - height + 30)
+    cmds.frameLayout(frame_layout, edit=True, height=frame_height - height + 30)
 
-    if '-' in axis:
-        vector_axis = tuple(va * -1 for va in vector_axis)
-    return vector_axis
+
+def expand(window, frame_layout, height):
+    window_height = cmds.window(window, query=True, height=True)
+    frame_height = cmds.frameLayout(frame_layout, query=True, height=True)
+    cmds.window(window, edit=True, height=window_height + height - 30)
+    cmds.frameLayout(frame_layout, edit=True, height=frame_height + height - 30)
+
+
+def build_limb_command(command_dict):
+    side = cmds.textField(command_dict['side'], query=True, text=True)
+    part = cmds.textField(command_dict['part'], query=True, text=True)
+    pole_vector = cmds.textField(command_dict['pole_vector'], query=True, text=True)
+
+    alias_list = []
+    for a in command_dict['alias_list']:
+        alias_list.append(cmds.textField(a, query=True, text=True))
+
+    joint_list = []
+    for j in command_dict['joint_list']:
+        joint_list.append(cmds.textField(j, query=True, text=True))
+
+    remove_guides = cmds.checkBox(command_dict['remove_guides'], query=True, value=True)
+
+    add_stretch = cmds.checkBox(command_dict['add_stretch'], query=True, value=True)
+
+    pa_active = cmds.radioCollection(command_dict['primary_axis'], query=True, select=True)
+
+    up_active = cmds.radioCollection(command_dict['up_axis'], query=True, select=True)
+
+    primary_axis = cmds.radioButton(pa_active, query=True, label=True)
+
+    up_axis = cmds.radioButton(up_active, query=True, label=True)
+
+    pr_color = cmds.colorSliderGrp(command_dict['primary'], query=True, rgb=True)
+    fk_color = cmds.colorSliderGrp(command_dict['fk'], query=True, rgb=True)
+    sc_color = cmds.colorSliderGrp(command_dict['secondary'], query=True, rgb=True)
+    pv_color = cmds.colorSliderGrp(command_dict['pv'], query=True, rgb=True)
+
+    color_dict = {side + '_' + part + '_primary': pr_color,
+                  side + '_' + part + '_fk': fk_color,
+                  side + '_' + part + '_secondary': sc_color,
+                  side + '_' + part + '_pv': pv_color, }
+
+    faslimb.limb(side=side, part=part, joint_list=joint_list,
+                 alias_list=alias_list, pole_vector=pole_vector,
+                 remove_guides=remove_guides, add_stretch=add_stretch, color_dict=color_dict,
+                 primary_axis=primary_axis, up_axis=up_axis)
