@@ -268,7 +268,7 @@ def blend_chains(base_name, ik_chain, fk_chain, bind_chain):
             cmds.connectAttr(base_name + '_settings_CTRL.fkIk', bcn + '.blender')
             cmds.connectAttr(bcn + '.output', bind + '.' + attr)
 
-
+#Stretchy IK 
 def add_ik_stretch(side, part, ik_chain, base_ctrl, local_ctrl, world_ctrl,
                    primary_axis):
     base_name = side + '_' + part
