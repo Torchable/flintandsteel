@@ -1,6 +1,6 @@
 import maya.cmds as cmds
 import importlib
-import flintandsteel.limb as faslimb
+import flintandsteel.flintandsteelautorig as faslimb
 
 importlib.reload(faslimb)
 
