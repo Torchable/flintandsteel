@@ -16,6 +16,7 @@ def limb_ui():
     main_layout = cmds.columnLayout(width=500, height=540)
 
     # add frame layouts
+    skeleton_dict = skeleton_setup_frame(window, main_layout)
     data_dict = build_data_frame(window, main_layout)
     arg_dict = build_arguements_frame(window, main_layout)
     color_dict = color_settings_frame(window, main_layout)
@@ -31,22 +32,18 @@ def limb_ui():
     cmds.showWindow(window)
 
 
-def joint_frame(bd):
-    for i in range(2):
-        for key, value in bd:
-            x = 0
-            y = 0
-            z = 2
-            for item in value:
-                if item in bd.arms:
-                    cmds.joint(n=bd.sides[y] + bd.arms[x] + '_JNT')
-                    x = x + 1
-                elif item in bd.legs:
-                    cmds.joint(n=bd.sides[y] + bd.legs[x] + '_JNT')
-                    x = x + 1
-                elif item in bd.spine:
-                    cmds.joint(n=bd.sides[z] + bd.spine[x] + '_JNT')
-                    x = x + 1
+def skeleton_setup_frame(window, main_layout):
+    skelframe = cmds.frameLayout(label='Skeleton Setup', width=500, height=70,
+                                 collapsable=True, parent=main_layout,
+                                 collapseCommand=lambda: collapse(window, skelframe, 70),
+                                 expandCommand=lambda: expand(window, skelframe, 70))
+    srcl = cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1, 166), (2, 166), (3, 166)],
+                                columnOffset=[(2, 'both', 2), (2, 'both', 2), (2, 'both', 2)],
+                                parent=skelframe)
+
+    arm_skeleton_setup = cmds.button(label='Load Arm Joints', height=30, parent=srcl, c='a_skeleton_setup()')
+    leg_skeleton_setup = cmds.button(label='Load Leg Joints', height=30, parent=srcl, c='b_skeleton_setup()')
+
 
 
 # Frame setup
@@ -211,7 +208,7 @@ def sel_load(text_field):
 def change_base_name(side_txt, part_txt, base_txt):
     side = cmds.textField(side_txt, query=True, text=True)
     part = cmds.textField(part_txt, query=True, text=True)
-    cmds.textField(base_txt, edit= True, text=side + '_' + part)
+    cmds.textField(base_txt, edit=True, text=side + '_' + part)
 
 
 # Collapsing tab frames
@@ -227,6 +224,13 @@ def expand(window, frame_layout, height):
     frame_height = cmds.frameLayout(frame_layout, query=True, height=True)
     cmds.window(window, edit=True, height=window_height + height - 30)
     cmds.frameLayout(frame_layout, edit=True, height=frame_height + height - 30)
+
+
+def a_skeleton_setup():
+    faslimb.arm_skeleton_setup()
+
+def b_skeleton_setup():
+    faslimb.leg_skeleton_setup()
 
 
 def build_limb_command(command_dict):
