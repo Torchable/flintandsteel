@@ -1,11 +1,17 @@
+# Flint and Steel Shelf Utils 
+#
+# By Colin Cheng
+
+# A couple of helper scripts made while learning from the Gnomon Workshop classes. Primary use is for the Auto Rigger 
+
+
 import maya.cmds as cmds
 import maya.mel as mel
-'''
 import maya.cmds as cmds
 import flintandsteel.shelfUtils as fasUtil
 reload(fasUtil)
 fasUtil.group_special()
-'''
+
 
 def create_centered_loc():
     sel = cmds.ls(selection=True)
@@ -28,6 +34,7 @@ def create_centered_loc():
             loc = cmds.spaceLocator(name=s + '_LOC')[0]
             a_to_b(is_trans=True, is_rot=True, sel=[loc, s])
 
+#Function calculates the distance between two points 
 def a_to_b(is_trans=True, is_rot=True, sel=None, freeze=False):
     # if selection list is not defined, use selected in scene
     if not sel:
@@ -280,7 +287,8 @@ def reset_to_origin(node, node_pos=False):
     cmds.setAttr(node + '.rotate', 0, 0, 0)
     cmds.makeIdentity(node, apply=True, translate=True, rotate=True,
                       scale=False, normal=False)
-
+    
+#Resets the transforms on an object
 def reset_transforms(nodes):
     if not nodes:
         nodes = cmds.ls(selection=True)
@@ -293,16 +301,6 @@ def reset_transforms(nodes):
         cmds.setAttr(node + '.translate', 0, 0, 0)
         cmds.setAttr(node + '.rotate', 0, 0, 0)
         cmds.setAttr(node + '.scale', 1, 1, 1)
-
-
-# Simple Rigging Automation Pt. 1
-# Creates necessary groups for starting the rigging process
-# Colin Cheng
-#
-# Input: Prefix name
-# Output: Multiple categorized groups for beginning the rigging process
-#
-# 1/20/24
 
 def riggroups(groups):
     # User input for prefix name
