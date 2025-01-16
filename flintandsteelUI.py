@@ -1,3 +1,11 @@
+# Flint and Steel Auto Rigger UI
+#
+# By Colin Cheng
+
+# Creates UI for assigning joints to create a limb
+
+# Credits to Gnomon Workshop for creating the classes that taught me how to start this.
+
 import maya.cmds as cmds
 import importlib
 import flintandsteel.flintandsteelautorig as faslimb
