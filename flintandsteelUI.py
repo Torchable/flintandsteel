@@ -49,10 +49,12 @@ def skeleton_setup_frame(window, main_layout):
                                 columnOffset=[(2, 'both', 2), (2, 'both', 2), (2, 'both', 2)],
                                 parent=skelframe)
 
-    arm_skeleton_setup = cmds.button(label='Load Arm Joints', height=30, parent=srcl, c='a_skeleton_setup()')
-    leg_skeleton_setup = cmds.button(label='Load Leg Joints', height=30, parent=srcl, c='b_skeleton_setup()')
-
-
+    arm_skeleton_setup = cmds.button(label='Load Arm Joints', height=30, parent=srcl, c= lambda x: build_arm())
+    leg_skeleton_setup = cmds.button(label='Load Leg Joints', height=30, parent=srcl, c=lambda x: build_leg())
+    
+    return_dict = {'legs_skeleton_setup': build_arm,
+                   'arms_skeleton_setup': build_leg, } 
+    return return_dict
 
 # Frame setup
 def build_data_frame(window, main_layout):
@@ -233,13 +235,11 @@ def expand(window, frame_layout, height):
     cmds.window(window, edit=True, height=window_height + height - 30)
     cmds.frameLayout(frame_layout, edit=True, height=frame_height + height - 30)
 
-
-def a_skeleton_setup():
+def build_arm():
     faslimb.arm_skeleton_setup()
 
-def b_skeleton_setup():
-    faslimb.leg_skeleton_setup()
-
+def build_leg():
+    faslimb.legs_skeleton_setup()
 
 def build_limb_command(command_dict):
     side = cmds.textField(command_dict['side'], query=True, text=True)
