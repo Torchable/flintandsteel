@@ -236,7 +236,7 @@ def expand(window, frame_layout, height):
     cmds.frameLayout(frame_layout, edit=True, height=frame_height + height - 30)
 
 def build_arm():
-    faslimb.arm_skeleton_setup()
+    faslimb.arms_skeleton_setup()
 
 def build_leg():
     faslimb.legs_skeleton_setup()
