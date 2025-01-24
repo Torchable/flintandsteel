@@ -27,16 +27,15 @@ class body_dict:
 
 #Creates arm joints for build setup. Havent figured out why a for loop doesnt work with the class naming, so for
 #now it remains like this, as much as I dislike it. 
-def arm_skeleton_setup():
-    if fasUI.a_skeleton_setup:
+def arms_skeleton_setup():
         cmds.joint(p= (0, 0, 0), n=('{}_{}_JNT'.format(body_dict.arms[0],1)))
         cmds.joint(p= (1, 0, 0), n=('{}_{}_JNT'.format(body_dict.arms[1],2)))
         cmds.joint(p= (2, 0, 0), n=('{}_{}_JNT'.format(body_dict.arms[2],3)))
         cmds.spaceLocator(n='arm_PV_LOC')
         cmds.matchTransform('arm_PV_LOC','elbow_2_JNT')
         cmds.group('shoulder_1_JNT', 'arm_PV_LOC', n='arm_set_GRP')
-def leg_skeleton_setup():
-    if fasUI.b_skeleton_setup:
+        
+def legs_skeleton_setup():
         cmds.joint(p= (0, 0, 0), n=('{}_{}_JNT'.format(body_dict.legs[0],1)))
         cmds.joint(p= (1, 0, 0), n=('{}_{}_JNT'.format(body_dict.legs[1],2)))
         cmds.joint(p= (2, 0, 0), n=('{}_{}_JNT'.format(body_dict.legs[2],3)))
