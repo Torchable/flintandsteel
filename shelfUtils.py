@@ -10,7 +10,6 @@ import maya.mel as mel
 import maya.cmds as cmds
 import flintandsteel.shelfUtils as fasUtil
 reload(fasUtil)
-fasUtil.group_special()
 
 
 def create_centered_loc():
