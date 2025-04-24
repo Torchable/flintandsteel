@@ -7,9 +7,10 @@
 
 import maya.cmds as cmds
 import maya.mel as mel
+import importlib
 import maya.cmds as cmds
 import flintandsteel.shelfUtils as fasUtil
-reload(fasUtil)
+importlib.reload(fasUtil)
 
 
 def create_centered_loc():
