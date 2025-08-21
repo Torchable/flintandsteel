@@ -75,8 +75,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
         # define parent control to be used in iterations after the first one
         par = ctrl
         # connect control to joint
-        cmds.pointConstraint(ctrl, fk_chain[i])
-        cmds.connectAttr(ctrl + '.rotate', fk_chain[i] + '.rotate')
+        cmds.parentConstraint(ctrl, fk_chain[i])
         fk_ctrls.append(ctrl)
 
     # create IK controls
