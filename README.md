@@ -2,7 +2,7 @@ This is Flint and Steel, an auto rigger for building limbs! To install, download
 
 Compatible with Maya 2024 
 
-Run this script to start it:
+Run this script to start it (You can throw this into your shelf as well!):
 
 import flintandsteel.flintandsteelUI as fasUI
 import importlib
