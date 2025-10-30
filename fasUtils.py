@@ -9,7 +9,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 import importlib
 import maya.cmds as cmds
-import flintandsteel.shelfUtils as fasUtil
+import flintandsteel.fasUtils as fasUtil
 importlib.reload(fasUtil)
 
 
@@ -329,3 +329,4 @@ def groups(x):
 
     # Creation of rig group
     RIG = cmds.group(CTRL, GEO, JNT, notouch, DEF, IK, n=x + '_RIG')
+
