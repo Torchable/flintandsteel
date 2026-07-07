@@ -9,7 +9,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 import importlib
 import maya.cmds as cmds
-import flintandsteel.fasUtils as fasUtil
+import flintandsteel.shelfUtils as shelfUtils
 importlib.reload(fasUtil)
 
 
