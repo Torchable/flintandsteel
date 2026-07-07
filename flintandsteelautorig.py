@@ -11,10 +11,10 @@ import maya.cmds as cmds
 import math
 import importlib
 import maya.mel as mm
-import flintandsteel.shelfUtils as ScriptUtil
+import flintandsteel.shelfUtils as shelfUtils
 import flintandsteel.flintandsteelUI as fasUI
 
-importlib.reload(ScriptUtil)
+importlib.reload(shelfUtils)
 
 
 class body_dict:
@@ -68,7 +68,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
             cmds.parent(ctrl, par)
 
         # align control to joint
-        ctrl_off = ScriptUtil.align_lras(snap_align=True, sel=[ctrl, fk_chain[i]])
+        ctrl_off = shelfUtils.align_lras(snap_align=True, sel=[ctrl, fk_chain[i]])
         if i == 0:
             fk_top_grp = ctrl_off
 
@@ -83,7 +83,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
                              constructionHistory=False,
                              name=base_name + '_IK_CTRL')[0]
     cmds.setAttr(world_ctrl + '.rotate' + primary_axis[-1], 45)
-    ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[world_ctrl, ik_chain[-1]],
+    shelfUtils.a_to_b(is_trans=True, is_rot=False, sel=[world_ctrl, ik_chain[-1]],
                       freeze=True)
     tag_control(world_ctrl, base_name + '_primary')
 
@@ -91,7 +91,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
                              name=base_name + '_local_IK_CTRL')[0]
     cmds.setAttr(local_ctrl + '.rotate' + primary_axis[-1], 45)
     cmds.makeIdentity(local_ctrl, apply=True, rotate=True)
-    local_off = ScriptUtil.align_lras(snap_align=True,
+    local_off = shelfUtils.align_lras(snap_align=True,
                                       sel=[local_ctrl, ik_chain[-1]])
     cmds.parent(local_off, world_ctrl)
     tag_control(local_ctrl, base_name + '_secondary')
@@ -102,7 +102,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
                   [0.0, 0.0, -1.0], [0.0, 0.0, 1.0]]
     pv_ctrl = curve_control(loc_points, name=base_name + '_PV_CTRL')
     cmds.setAttr(pv_ctrl + '.scale', r * 0.25, r * 0.25, r * 0.25)
-    ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[pv_ctrl, pole_vector],
+    shelfUtils.a_to_b(is_trans=True, is_rot=False, sel=[pv_ctrl, pole_vector],
                       freeze=True)
     tag_control(pv_ctrl, base_name + '_pv')
 
@@ -110,7 +110,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
                             sections=4, constructionHistory=False,
                             name='{}_{}_IK_CTRL'.format(side, alias_list[0]))[0]
     cmds.setAttr(base_ctrl + '.rotate' + primary_axis[-1], 45)
-    ScriptUtil.a_to_b(is_trans=True, is_rot=False, sel=[base_ctrl, ik_chain[0]],
+    shelfUtils.a_to_b(is_trans=True, is_rot=False, sel=[base_ctrl, ik_chain[0]],
                       freeze=True)
     cmds.parentConstraint(base_ctrl, ik_chain[0], mo=True)
     tag_control(base_ctrl, base_name + '_primary')
@@ -133,7 +133,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
     settings_ctrl = curve_control(point_list=plus_points,
                                   name=base_name + '_settings_CTRL')
     tag_control(settings_ctrl, base_name + '_primary')
-    settings_off = ScriptUtil.align_lras(snap_align=True,
+    settings_off = shelfUtils.align_lras(snap_align=True,
                                          sel=[settings_ctrl, ik_chain[-1]])
     cmds.setAttr(settings_ctrl + '.scale', r * 0.25, r * 0.25, r * 0.25)
     if up_axis[0] == '-':
@@ -173,7 +173,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
     cmds.parent(fk_ctrl_grp, ik_ctrl_grp, no_xform_grp, fk_chain[0],
                 ik_chain[0], settings_off, limb_rig_grp)
     cmds.parent(skeleton_grp, limb_rig_grp, all_grp)
-    ScriptUtil.transfer_pivots(sel=[bind_chain[0], skeleton_grp, limb_rig_grp,
+    shelfUtils.transfer_pivots(sel=[bind_chain[0], skeleton_grp, limb_rig_grp,
                                     fk_ctrl_grp, ik_ctrl_grp])
     cmds.hide(no_xform_grp, fk_chain[0], ik_chain[0], bind_chain[0])
 
@@ -348,7 +348,7 @@ def add_fk_stretch(fk_ctrls, fk_chain, primary_axis):
             loc = cmds.spaceLocator(name=fk_chain[i + 1].replace(
                 'JNT', 'OFF_LOC'))[0]
             cmds.parent(loc, fk_chain[i])
-            ScriptUtil.a_to_b(sel=[loc, fk_chain[i + 1]])
+            shelfUtils.a_to_b(sel=[loc, fk_chain[i + 1]])
             offset_val = cmds.getAttr(loc + '.translate' + primary_axis[-1])
             cmds.setAttr(mdl + '.input1', offset_val)
             cmds.connectAttr(ctrl + '.stretch', mdl + '.input2')
@@ -396,7 +396,7 @@ def create_chain(side, joint_list, alias_list, suffix):
         else:
             par = jnt
         jnt = cmds.joint(par, n='{}_{}_{}_JNT'.format(side, a, suffix))
-        ScriptUtil.a_to_b(sel=[jnt, j], freeze=True)
+        shelfUtils.a_to_b(sel=[jnt, j], freeze=True)
         chain.append(jnt)
 
     return chain
