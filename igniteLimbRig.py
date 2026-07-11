@@ -220,7 +220,7 @@ def limb(side=body_dict.sides[0], part=None, joint_list= None,
     cmds.connectAttr(settings_ctrl + '.fkIk', ik_ctrl_grp + '.visibility')
     cmds.connectAttr(vis_rev + '.outputX', fk_ctrl_grp + '.visibility')
 
-    pv_gde = add_guide(pv_ctrl, ik_chain)
+    pv_gde = add_guide(pv_ctrl, ik_chain[1])
     cmds.parent(pv_gde[0], no_xform_grp)
     cmds.parent(pv_gde[1], ik_ctrl_grp)
 
