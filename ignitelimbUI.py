@@ -8,9 +8,9 @@
 
 import maya.cmds as cmds
 import importlib
-import flintandsteel.flintandsteelautorig as faslimb
+import ignite.igniteautorig as iglimb
 
-importlib.reload(faslimb)
+importlib.reload(iglimb)
 
 
 def limb_ui():
@@ -236,10 +236,10 @@ def expand(window, frame_layout, height):
     cmds.frameLayout(frame_layout, edit=True, height=frame_height + height - 30)
 
 def build_arm():
-    faslimb.arms_skeleton_setup()
+    iglimb.arms_skeleton_setup()
 
 def build_leg():
-    faslimb.legs_skeleton_setup()
+    iglimb.legs_skeleton_setup()
 
 def build_limb_command(command_dict):
     side = cmds.textField(command_dict['side'], query=True, text=True)
@@ -276,7 +276,7 @@ def build_limb_command(command_dict):
                   side + '_' + part + '_secondary': sc_color,
                   side + '_' + part + '_pv': pv_color, }
 
-    faslimb.limb(side=side, part=part, joint_list=joint_list,
+    iglimb.limb(side=side, part=part, joint_list=joint_list,
                  alias_list=alias_list, pole_vector=pole_vector,
                  remove_guides=remove_guides, add_stretch=add_stretch, color_dict=color_dict,
                  primary_axis=primary_axis, up_axis=up_axis)
