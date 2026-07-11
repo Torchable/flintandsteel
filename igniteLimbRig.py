@@ -11,7 +11,7 @@ import maya.cmds as cmds
 import math
 import importlib
 import maya.mel as mm
-import ignite.shelfUtils as shelfUtils
+import ignite.shelfUtils as igUtils
 import ignite.igniteUI as igUI
 
 importlib.reload(shelfUtils)
