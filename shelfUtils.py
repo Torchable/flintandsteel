@@ -9,8 +9,8 @@ import maya.cmds as cmds
 import maya.mel as mel
 import importlib
 import maya.cmds as cmds
-import flintandsteel.shelfUtils as shelfUtils
-importlib.reload(fasUtil)
+import ignite.shelfUtils as shelfUtils
+importlib.reload(igUtil)
 
 
 def create_centered_loc():
