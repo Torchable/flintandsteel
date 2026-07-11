@@ -6,7 +6,7 @@
 
 # Credits to Gnomon Workshop for creating the classes that taught me how to start this.
 
-import maya.cmds as cmds
+from maya import cmds
 import importlib
 import ignite.igniteLimbRig as iglimb
 
