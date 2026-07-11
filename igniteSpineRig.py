@@ -15,7 +15,7 @@ import math
 import importlib
 
 import maya.cmds as cmds
-import ignite.igUtils as igUtils
+import ignite.shelfUtils as igUtils
 
 importlib.reload(igUtils)
 
