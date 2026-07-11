@@ -1,7 +1,5 @@
 # Ignite Spine 
 #
-# By Colin Cheng
-#
 # Builds an FK/IK spine for Maya 2024+ from a chain of guide joints.
 #
 # The build only needs a pelvis guide and a chest guide at minimum. Every
@@ -378,10 +376,19 @@ def create_driver(name, target=None, position=None):
 
 
 def diamond_control(name, radius, pa, primary_axis, target):
-    """Creates a four point diamond control and snaps it to the target."""
-    ctrl = cmds.circle(radius=radius, normal=pa, degree=1, sections=4,
-                       constructionHistory=False, name=name)[0]
-    cmds.setAttr(ctrl + '.rotate' + primary_axis[-1], 45)
+    cube_points = [
+        [-1.5,  0.4, -1.5], [ 1.5,  0.4, -1.5], [ 1.5,  0.4,  1.5], [-1.5,  0.4,  1.5],
+        [-1.5,  0.4, -1.5],
+        [-1.5, -0.4, -1.5], [ 1.5, -0.4, -1.5], [ 1.5, -0.4,  1.5], [-1.5, -0.4,  1.5],
+        [-1.5, -0.4, -1.5],
+        [-1.5, -0.4,  1.5], [-1.5,  0.4,  1.5],
+        [ 1.5,  0.4,  1.5], [ 1.5, -0.4,  1.5],
+        [ 1.5, -0.4, -1.5], [ 1.5,  0.4, -1.5],
+    ]
+        
+    """Creates a cube control and snaps it to the target."""
+    ctrl = cmds.curve(degree=1, point=cube_points,
+                      name=name)
     igUtils.a_to_b(is_trans=True, is_rot=False, sel=[ctrl, target],
                    freeze=True)
 
