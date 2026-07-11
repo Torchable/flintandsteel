@@ -4,7 +4,7 @@
 # The UI only gathers the build settings, the actual rig building lives in
 # igniteSpineRig.py.
 #
-# Built with the Flint and Steel auto rigger UI as reference.
+# This UI script was built with the assistance of Claude Code
 
 import importlib
 
