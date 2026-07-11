@@ -1,5 +1,7 @@
 # Ignite Spine 
 #
+# By Colin Cheng
+#
 # Builds an FK/IK spine for Maya 2024+ from a chain of guide joints.
 #
 # The build only needs a pelvis guide and a chest guide at minimum. Every
