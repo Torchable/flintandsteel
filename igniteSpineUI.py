@@ -8,7 +8,7 @@
 
 import importlib
 
-import maya.cmds as cmds
+from maya import cmds
 import ignite.igniteSpineRig as igSpine
 
 importlib.reload(igSpine)
