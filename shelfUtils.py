@@ -9,7 +9,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 import importlib
 import maya.cmds as cmds
-import ignite.shelfUtils as shelfUtils
+import ignite.shelfUtils as igUtils
 importlib.reload(igUtil)
 
 
