@@ -1,6 +1,10 @@
 from maya import cmds
 
 # Callback
+
+def onMayaDroppedPythonFile(*args):
+    cmds.confirmDialog(title='Ignite', message='Dropped!')
+        
 def igspinecreator(*args):
     import ignite.igniteSpineUI as spineUI
     import importlib
