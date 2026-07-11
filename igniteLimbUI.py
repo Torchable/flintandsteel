@@ -19,7 +19,7 @@ def limb_ui():
         cmds.deleteUI('limbCreatorUI')
 
     # window creation
-    window = cmds.window('limbCreatorUI', title='Limb Creator', width=500, height=540)
+    window = cmds.window('limbCreatorUI', title='Ignite Limb Creator', width=500, height=540)
 
     main_layout = cmds.columnLayout(width=500, height=540)
 
