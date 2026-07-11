@@ -7,10 +7,9 @@
 # Credits to Gnomon Workshop for creating the classes that taught me how to start this.
 # I included a class containing a few lists to expand this auto rigger to beyond the arm, still a W.I.P however as I want to add a spine setup next! 
 
-import maya.cmds as cmds
+from maya import cmds
 import math
 import importlib
-import maya.mel as mm
 import ignite.shelfUtils as igUtils
 import ignite.igniteUI as igUI
 
