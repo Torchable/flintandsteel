@@ -14,7 +14,7 @@ import maya.mel as mm
 import ignite.shelfUtils as igUtils
 import ignite.igniteUI as igUI
 
-importlib.reload(shelfUtils)
+importlib.reload(igUtils)
 
 
 class body_dict:
