@@ -8,7 +8,7 @@
 
 import maya.cmds as cmds
 import importlib
-import ignite.igniteautorig as iglimb
+import ignite.igniteLimbRig as iglimb
 
 importlib.reload(iglimb)
 
