@@ -334,7 +334,7 @@ def get_guide_chain(pelvis_guide, chest_guide):
 
 
 def get_alias_list(guide_list):
-    """Pelvis first, chest last, and spine_## for everything in between."""
+    """Pelvis first, chest last, and spine_ for everything in between."""
     alias_list = [spine_dict.spine[0]]
     for i in range(1, len(guide_list) - 1):
         alias_list.append('{}_{:02d}'.format(spine_dict.spine[1], i))
