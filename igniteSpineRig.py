@@ -9,7 +9,9 @@
 #   - a stretchy chest (stretch attribute on the chest IK control)
 #   - twist spread across the in-between joints with spline IK advanced
 #     twist, driven by rotating the pelvis/chest IK controls
-#   - IK tweak controls between the pelvis and chest to shape the spine
+#   - mid IK controls between the pelvis and chest to shape the spine curve
+#   - tweak controls on every joint (pelvis and chest included) that nudge
+#     the individual spine joints on top of the FK/IK result
 
 import math
 import importlib
@@ -58,11 +60,15 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     # naming convention for the spine
     base_name = side + '_' + part
 
-    # creates the FK, IK, bind chain
+    # creates the FK, IK, blend, bind chain. the blend chain holds the raw
+    # FK/IK switch result, the tweak controls then offset the bind chain
+    # on top of it
     ik_chain = create_chain(side, guide_list, alias_list, 'IK',
                             primary_axis, up_axis)
     fk_chain = create_chain(side, guide_list, alias_list, 'FK',
                             primary_axis, up_axis)
+    blend_chain = create_chain(side, guide_list, alias_list, 'blend',
+                               primary_axis, up_axis)
     bind_chain = create_chain(side, guide_list, alias_list, 'bind',
                               primary_axis, up_axis)
 
@@ -95,19 +101,19 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     # create the pelvis and chest IK controls
     # (before the spline handle so the freeze inside a_to_b still works on
     # the clean IK joints)
-    pelvis_ctrl = diamond_control('{}_{}_IK_CTRL'.format(side, alias_list[0]),
-                                  r * 1.4, pa, primary_axis, ik_chain[0])
+    pelvis_ctrl = cube_control('{}_{}_IK_CTRL'.format(side, alias_list[0]),
+                               r, primary_axis, ik_chain[0])
     tag_control(pelvis_ctrl, base_name + '_primary')
 
-    chest_ctrl = diamond_control('{}_{}_IK_CTRL'.format(side, alias_list[-1]),
-                                 r * 1.4, pa, primary_axis, ik_chain[-1])
+    chest_ctrl = cube_control('{}_{}_IK_CTRL'.format(side, alias_list[-1]),
+                              r, primary_axis, ik_chain[-1])
     tag_control(chest_ctrl, base_name + '_primary')
 
     # build the spline IK curve through the ik joint positions
     points = [cmds.xform(j, query=True, worldSpace=True, rotatePivot=True)
               for j in ik_chain]
     if len(points) == 2:
-        # minimum spine (pelvis + chest only), add a mid point so the tweak
+        # minimum spine (pelvis + chest only), add a mid point so the mid IK
         # control still has a part of the curve to pull on
         mid = [(a + b) * 0.5 for a, b in zip(points[0], points[1])]
         points.insert(1, mid)
@@ -123,42 +129,42 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     chest_drv = create_driver('{}_{}_driver_JNT'.format(side, alias_list[-1]),
                               target=ik_chain[-1])
 
-    # one tweak driver for every in-between joint, if the spine is only a
-    # pelvis and chest then a single tweak driver sits at the mid point
-    tweak_data = []
+    # one curve driver for every in-between joint, if the spine is only a
+    # pelvis and chest then a single driver sits at the mid point
+    mid_ik_data = []
     if len(ik_chain) > 2:
         for i in range(1, len(ik_chain) - 1):
             weight = i / float(len(ik_chain) - 1)
             drv = create_driver('{}_{}_driver_JNT'.format(side, alias_list[i]),
                                 target=ik_chain[i])
-            tweak_data.append([alias_list[i], weight, drv])
+            mid_ik_data.append([alias_list[i], weight, drv])
     else:
         drv = create_driver('{}_spine_mid_driver_JNT'.format(side),
                             position=points[1])
-        tweak_data.append(['spine_mid', 0.5, drv])
+        mid_ik_data.append(['spine_mid', 0.5, drv])
 
-    driver_jnts = [pelvis_drv] + [t[2] for t in tweak_data] + [chest_drv]
+    driver_jnts = [pelvis_drv] + [t[2] for t in mid_ik_data] + [chest_drv]
     cmds.skinCluster(driver_jnts + [ik_curve], toSelectedBones=True,
                      maximumInfluences=2, name=base_name + '_ik_CRV_SCC')
 
     cmds.parentConstraint(pelvis_ctrl, pelvis_drv, maintainOffset=True)
     cmds.parentConstraint(chest_ctrl, chest_drv, maintainOffset=True)
 
-    # create the IK tweak controls
-    tweak_ctrls = []
-    tweak_offs = []
-    for alias, weight, drv in tweak_data:
+    # create the mid IK controls that shape the spine curve
+    mid_ik_ctrls = []
+    mid_ik_offs = []
+    for alias, weight, drv in mid_ik_data:
         ctrl = cmds.circle(radius=r * 0.75, normal=pa, degree=3,
                            constructionHistory=False,
-                           name='{}_{}_tweak_CTRL'.format(side, alias))[0]
-        tag_control(ctrl, base_name + '_tweak')
+                           name='{}_{}_IK_CTRL'.format(side, alias))[0]
+        tag_control(ctrl, base_name + '_primary')
 
         off = cmds.group(empty=True, name=ctrl + '_OFF_GRP')
         pos = cmds.xform(drv, query=True, worldSpace=True, rotatePivot=True)
         cmds.xform(off, worldSpace=True, translation=pos)
         cmds.parent(ctrl, off, relative=True)
 
-        # tweaks ride between the pelvis and chest controls, weighted by
+        # the mids ride between the pelvis and chest controls, weighted by
         # where they sit along the spine
         pcn = cmds.parentConstraint(pelvis_ctrl, chest_ctrl, off,
                                     maintainOffset=True)[0]
@@ -169,8 +175,8 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
         cmds.setAttr('{}.{}'.format(pcn, weight_aliases[1]), weight)
 
         cmds.parentConstraint(ctrl, drv, maintainOffset=True)
-        tweak_ctrls.append(ctrl)
-        tweak_offs.append(off)
+        mid_ik_ctrls.append(ctrl)
+        mid_ik_offs.append(off)
 
     # create the spline IKH
     ikh = cmds.ikHandle(name=base_name + '_ik_HDL', startJoint=ik_chain[0],
@@ -215,12 +221,42 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     cmds.addAttr(settings_ctrl, attributeType='double', min=0, max=1,
                  defaultValue=1, keyable=True, longName='fkIk')
 
-    # fk/ik switch with blend color nodes
-    blend_chains(base_name, ik_chain, fk_chain, bind_chain)
+    # fk/ik switch with blend color nodes, the result lands on the blend
+    # chain so the tweak controls can offset the bind chain on top of it
+    blend_chains(settings_ctrl, ik_chain, fk_chain, blend_chain)
+
+    # create the tweak controls, one per joint (pelvis and chest included).
+    # each one rides the fk/ik blended result and nudges only its own bind
+    # joint, so they work in both modes and stay put for the rest
+    tweak_ctrls = []
+    tweak_offs = []
+    for i, alias in enumerate(alias_list):
+        ctrl = cmds.circle(radius=r * 0.5, normal=pa, degree=1, sections=4,
+                           constructionHistory=False,
+                           name='{}_{}_tweak_CTRL'.format(side, alias))[0]
+        cmds.setAttr(ctrl + '.rotate' + primary_axis[-1], 45)
+        cmds.makeIdentity(ctrl, apply=True, rotate=True)
+        tag_control(ctrl, base_name + '_tweak')
+
+        # the offset group matches the joint so the control's axes line up
+        # with the bone
+        off = cmds.group(empty=True, name=ctrl + '_OFF_GRP')
+        igUtils.a_to_b(sel=[off, blend_chain[i]])
+        cmds.parent(ctrl, off, relative=True)
+
+        # follow the blended result, then drive the bind joint. the bind
+        # joints never scale, the stretch reaches them through the blend
+        # joint positions instead
+        cmds.parentConstraint(blend_chain[i], off, maintainOffset=True)
+        cmds.parentConstraint(ctrl, bind_chain[i], maintainOffset=True)
+
+        tweak_ctrls.append(ctrl)
+        tweak_offs.append(off)
 
     # organize
     fk_ctrl_grp = cmds.group(em=True, name=base_name + '_FK_CTRL_GRP')
     ik_ctrl_grp = cmds.group(em=True, name=base_name + '_IK_CTRL_GRP')
+    tweak_ctrl_grp = cmds.group(em=True, name=base_name + '_tweak_CTRL_GRP')
     skeleton_grp = cmds.group(em=True, name=base_name + '_skeleton_GRP')
     drivers_grp = cmds.group(em=True, name=base_name + '_drivers_GRP')
     no_xform_grp = cmds.group(em=True, name=base_name + '_noXform_GRP')
@@ -228,22 +264,24 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     all_grp = cmds.group(em=True, name=base_name.upper())
 
     cmds.parent(pelvis_ctrl, chest_ctrl, ik_ctrl_grp)
-    cmds.parent(tweak_offs, ik_ctrl_grp)
+    cmds.parent(mid_ik_offs, ik_ctrl_grp)
+    cmds.parent(tweak_offs, tweak_ctrl_grp)
     cmds.parent(fk_top_grp, fk_ctrl_grp)
     cmds.parent(bind_chain[0], skeleton_grp)
     cmds.parent(driver_jnts, drivers_grp)
     cmds.parent(no_xform_list, no_xform_grp)
-    cmds.parent(fk_ctrl_grp, ik_ctrl_grp, drivers_grp, no_xform_grp,
-                fk_chain[0], ik_chain[0], settings_off, spine_rig_grp)
+    cmds.parent(fk_ctrl_grp, ik_ctrl_grp, tweak_ctrl_grp, drivers_grp,
+                no_xform_grp, fk_chain[0], ik_chain[0], blend_chain[0],
+                settings_off, spine_rig_grp)
     cmds.parent(skeleton_grp, spine_rig_grp, all_grp)
     igUtils.transfer_pivots(sel=[bind_chain[0], skeleton_grp, spine_rig_grp,
-                                 fk_ctrl_grp, ik_ctrl_grp])
+                                 fk_ctrl_grp, ik_ctrl_grp, tweak_ctrl_grp])
 
     # the curve is deformed by the drivers in world space, so its group
     # cannot also inherit the rig group's transforms
     cmds.setAttr(no_xform_grp + '.inheritsTransform', 0)
     cmds.hide(no_xform_grp, drivers_grp, fk_chain[0], ik_chain[0],
-              bind_chain[0])
+              blend_chain[0], bind_chain[0])
 
     # compensate for global scale
     cmds.addAttr(all_grp, attributeType='double', min=0.001, defaultValue=1,
@@ -278,6 +316,7 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
                                             'visibility'])
     lock_and_hide([pelvis_ctrl, chest_ctrl],
                   attribute_list=['scale', 'visibility'])
+    lock_and_hide(mid_ik_ctrls, attribute_list=['scale', 'visibility'])
     lock_and_hide(tweak_ctrls, attribute_list=['scale', 'visibility'])
     lock_and_hide(settings_ctrl)
 
@@ -299,6 +338,7 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
             'settings_ctrl': settings_ctrl,
             'pelvis_ctrl': pelvis_ctrl,
             'chest_ctrl': chest_ctrl,
+            'mid_ik_ctrls': mid_ik_ctrls,
             'tweak_ctrls': tweak_ctrls,
             'fk_ctrls': fk_ctrls,
             'bind_chain': bind_chain}
@@ -375,7 +415,9 @@ def create_driver(name, target=None, position=None):
     return drv
 
 
-def diamond_control(name, radius, pa, primary_axis, target):
+def cube_control(name, radius, primary_axis, target):
+    """Creates a flat cube control, sized by radius and lying flat across
+    the primary axis, and snaps it to the target."""
     cube_points = [
         [-1.5,  0.4, -1.5], [ 1.5,  0.4, -1.5], [ 1.5,  0.4,  1.5], [-1.5,  0.4,  1.5],
         [-1.5,  0.4, -1.5],
@@ -385,10 +427,20 @@ def diamond_control(name, radius, pa, primary_axis, target):
         [ 1.5,  0.4,  1.5], [ 1.5, -0.4,  1.5],
         [ 1.5, -0.4, -1.5], [ 1.5,  0.4, -1.5],
     ]
-        
-    """Creates a cube control and snaps it to the target."""
-    ctrl = cmds.curve(degree=1, point=cube_points,
-                      name=name)
+
+    ctrl = cmds.curve(degree=1, point=cube_points, name=name)
+    shp = cmds.listRelatives(ctrl, shapes=True)[0]
+    cmds.rename(shp, ctrl + 'Shape')
+
+    # the points are modeled flat across Y, spin the cube so it lies flat
+    # across the primary axis instead, then size it to the rig
+    if primary_axis[-1] == 'X':
+        cmds.setAttr(ctrl + '.rotateZ', 90)
+    elif primary_axis[-1] == 'Z':
+        cmds.setAttr(ctrl + '.rotateX', 90)
+    cmds.setAttr(ctrl + '.scale', radius, radius, radius)
+    cmds.makeIdentity(ctrl, apply=True, rotate=True, scale=True)
+
     igUtils.a_to_b(is_trans=True, is_rot=False, sel=[ctrl, target],
                    freeze=True)
 
@@ -423,17 +475,18 @@ def setup_advanced_twist(ikh, pelvis_ctrl, chest_ctrl, primary_axis, up_axis):
                      ikh + '.dWorldUpMatrixEnd')
 
 
-def blend_chains(base_name, ik_chain, fk_chain, bind_chain):
-    # hook up switching
-    for ik, fk, bind in zip(ik_chain, fk_chain, bind_chain):
+def blend_chains(settings_ctrl, ik_chain, fk_chain, blend_chain):
+    # hook up switching, the settings control is passed by node instead of
+    # looked up by name so two builds in one scene can't cross-wire
+    for ik, fk, blend in zip(ik_chain, fk_chain, blend_chain):
         for attr in ['translate', 'rotate', 'scale']:
             bcn = cmds.createNode('blendColors',
-                                  name=bind.replace('bind_JNT', attr + '_BCN'))
+                                  name=blend.replace('blend_JNT',
+                                                     attr + '_BCN'))
             cmds.connectAttr(ik + '.' + attr, bcn + '.color1')
             cmds.connectAttr(fk + '.' + attr, bcn + '.color2')
-            cmds.connectAttr(base_name + '_settings_CTRL.fkIk',
-                             bcn + '.blender')
-            cmds.connectAttr(bcn + '.output', bind + '.' + attr)
+            cmds.connectAttr(settings_ctrl + '.fkIk', bcn + '.blender')
+            cmds.connectAttr(bcn + '.output', blend + '.' + attr)
 
 
 # Stretchy chest, the ratio of the deformed curve length against its rest
