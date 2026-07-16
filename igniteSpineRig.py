@@ -11,7 +11,8 @@
 #     twist, driven by rotating the pelvis/chest IK controls
 #   - mid IK controls between the pelvis and chest to shape the spine curve
 #   - tweak controls on every joint (pelvis and chest included) that nudge
-#     the individual spine joints on top of the FK/IK result
+#     the individual spine joints on top of the FK/IK result, with a
+#     tweakVis toggle on the pelvis IK control
 
 import math
 import importlib
@@ -75,13 +76,19 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     # optimize control size by using a fraction of the pelvis-to-chest length
     r = distance_between(fk_chain[0], fk_chain[-1]) / float(5)
 
-    # create FK controls and connect to fk joint chain
+    # create FK controls and connect to fk joint chain, the pelvis and
+    # chest ends get cubes so they read like the IK anchors, the joints
+    # between them stay circles
     fk_ctrls = []
     fk_top_grp = None
     par = None
     for i, alias in enumerate(alias_list):
-        ctrl = cmds.circle(radius=r, normal=pa, degree=3,
-                           name='{}_{}_FK_CTRL'.format(side, alias))[0]
+        if i in (0, len(alias_list) - 1):
+            ctrl = cube_curve('{}_{}_FK_CTRL'.format(side, alias), r,
+                              primary_axis)
+        else:
+            ctrl = cmds.circle(radius=r, normal=pa, degree=3,
+                               name='{}_{}_FK_CTRL'.format(side, alias))[0]
         tag_control(ctrl, base_name + '_fk')
         if i != 0:
             # parent to previous control
@@ -154,7 +161,7 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     mid_ik_ctrls = []
     mid_ik_offs = []
     for alias, weight, drv in mid_ik_data:
-        ctrl = cmds.circle(radius=r * 0.75, normal=pa, degree=3,
+        ctrl = cmds.circle(radius=r * 1.1, normal=pa, degree=3,
                            constructionHistory=False,
                            name='{}_{}_IK_CTRL'.format(side, alias))[0]
         tag_control(ctrl, base_name + '_primary')
@@ -235,7 +242,7 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     tweak_ctrls = []
     tweak_offs = []
     for i, alias in enumerate(alias_list):
-        ctrl = cmds.circle(radius=r * 0.5, normal=pa, degree=1, sections=4,
+        ctrl = cmds.circle(radius=r * 0.85, normal=pa, degree=1, sections=4,
                            constructionHistory=False,
                            name='{}_{}_tweak_CTRL'.format(side, alias))[0]
         cmds.setAttr(ctrl + '.rotate' + primary_axis[-1], 45)
@@ -330,6 +337,12 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
     cmds.connectAttr(settings_ctrl + '.fkIk', ik_ctrl_grp + '.visibility')
     cmds.connectAttr(vis_rev + '.outputX', fk_ctrl_grp + '.visibility')
 
+    # tweak control visibility toggle on the pelvis, on by default
+    cmds.addAttr(pelvis_ctrl, attributeType='bool', defaultValue=1,
+                 keyable=True, longName='tweakVis')
+    cmds.connectAttr(pelvis_ctrl + '.tweakVis',
+                     tweak_ctrl_grp + '.visibility')
+
     # remove guide joints
     if remove_guides:
         cmds.delete(guide_list[0])
@@ -419,9 +432,9 @@ def create_driver(name, target=None, position=None):
     return drv
 
 
-def cube_control(name, radius, primary_axis, target):
-    """Creates a flat cube control, sized by radius and lying flat across
-    the primary axis, and snaps it to the target."""
+def cube_curve(name, radius, primary_axis):
+    """Creates the flat cube curve shape at the origin, sized by radius and
+    lying flat across the primary axis."""
     cube_points = [
         [-1.5,  0.4, -1.5], [ 1.5,  0.4, -1.5], [ 1.5,  0.4,  1.5], [-1.5,  0.4,  1.5],
         [-1.5,  0.4, -1.5],
@@ -445,6 +458,12 @@ def cube_control(name, radius, primary_axis, target):
     cmds.setAttr(ctrl + '.scale', radius, radius, radius)
     cmds.makeIdentity(ctrl, apply=True, rotate=True, scale=True)
 
+    return ctrl
+
+
+def cube_control(name, radius, primary_axis, target):
+    """Creates a flat cube control and snaps it to the target."""
+    ctrl = cube_curve(name, radius, primary_axis)
     igUtils.a_to_b(is_trans=True, is_rot=False, sel=[ctrl, target],
                    freeze=True)
 

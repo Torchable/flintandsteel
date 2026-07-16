@@ -251,16 +251,17 @@ def change_base_name(side_txt, part_txt, base_txt):
 # Collapsing tab frames
 def collapse(window, frame_layout, height):
     window_height = cmds.window(window, query=True, height=True)
-    frame_height = cmds.frameLayout(frame_layout, query=True, height=True)
+    # the frame is set to a fixed 30 tall header, never relative to its
+    # queried current size, so the dropdown's own resize can't stack up
     cmds.window(window, edit=True, height=window_height - height + 30)
-    cmds.frameLayout(frame_layout, edit=True, height=frame_height - height + 30)
+    cmds.frameLayout(frame_layout, edit=True, height=30)
 
 
 def expand(window, frame_layout, height):
     window_height = cmds.window(window, query=True, height=True)
-    frame_height = cmds.frameLayout(frame_layout, query=True, height=True)
+    # restore the frame's design height outright
     cmds.window(window, edit=True, height=window_height + height - 30)
-    cmds.frameLayout(frame_layout, edit=True, height=frame_height + height - 30)
+    cmds.frameLayout(frame_layout, edit=True, height=height)
 
 
 def build_spine_guides(mid_count_field):
