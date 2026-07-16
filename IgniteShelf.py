@@ -1,33 +1,31 @@
 from maya import cmds
 
-# Callback
-
-def onMayaDroppedPythonFile(*args):
-    cmds.confirmDialog(title='Ignite', message='Dropped!')
-        
-def igspinecreator(*args):
-    import ignite.igniteSpineUI as spineUI
-    import importlib
-
-    importlib.reload(spineUI)
-    spineUI.spine_ui()
-
-
-def iglimbcreator(*args):
-    import ignite.igniteLimbUI as LimbUI
-    import importlib
-
-    importlib.reload(LimbUI)
-    LimbUI.limb_ui()
-
 # Shelf Def
 
+# The button commands are plain python strings on purpose. Maya saves every
+# shelf to prefs/shelves/shelf_Ignite.mel when it closes, and only a string
+# survives that round trip. A python function object gets saved as its repr
+# ("<function ... at 0x...>") and the button is dead the next session.
+
+SPINE_CMD = '\n'.join([
+    'import importlib',
+    'import ignite.igniteSpineUI as spineUI',
+    'importlib.reload(spineUI)',
+    'spineUI.spine_ui()',
+])
+
+LIMB_CMD = '\n'.join([
+    'import importlib',
+    'import ignite.igniteLimbUI as limbUI',
+    'importlib.reload(limbUI)',
+    'limbUI.limb_ui()',
+])
 
 SHELF_BUTTONS = [
-    
-    {'label': 'IgSpine Creator', 'command': igspinecreator},
-    {'label': 'IgLimb Creator', 'command': iglimbcreator},
+    {'label': 'IgSpine Creator', 'command': SPINE_CMD},
+    {'label': 'IgLimb Creator', 'command': LIMB_CMD},
 ]
+
 
 class igniteShelf(object):
     NAME = 'Ignite'
@@ -59,6 +57,7 @@ class igniteShelf(object):
             image=icon,
             label=label,
             command=command,
+            sourceType='python',
             imageOverlayLabel=label,
         )
 
