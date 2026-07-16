@@ -2,39 +2,40 @@ from maya import cmds
 
 # Shelf Def
 
-# The button commands are plain python strings on purpose. Maya saves every
-# shelf to prefs/shelves/shelf_Ignite.mel when it closes, and only a string
-# survives that round trip. A python function object gets saved as its repr
-# ("<function ... at 0x...>") and the button is dead the next session.
-
-SPINE_CMD = '\n'.join([
-    'import importlib',
-    'import ignite.igniteSpineUI as spineUI',
-    'importlib.reload(spineUI)',
-    'spineUI.spine_ui()',
-])
-
-LIMB_CMD = '\n'.join([
-    'import importlib',
-    'import ignite.igniteLimbUI as limbUI',
-    'importlib.reload(limbUI)',
-    'limbUI.limb_ui()',
-])
-
-SHELF_BUTTONS = [
-    {'label': 'IgSpine Creator', 'command': SPINE_CMD},
-    {'label': 'IgLimb Creator', 'command': LIMB_CMD},
-]
-
 
 class igniteShelf(object):
     NAME = 'Ignite'
     ICON_PATH = ''
     DEFAULT_ICON = 'commandButton.png'
 
+    # The button commands are plain python strings on purpose. Maya saves
+    # every shelf to prefs/shelves/shelf_Ignite.mel when it closes, and only
+    # a string survives that round trip. A python function object gets saved
+    # as its repr ("<function ... at 0x...>") and the button is dead the
+    # next session.
+    SPINE_CMD = '\n'.join([
+        'import importlib',
+        'import ignite.igniteSpineUI as spineUI',
+        'importlib.reload(spineUI)',
+        'spineUI.spine_ui()',
+    ])
+
+    LIMB_CMD = '\n'.join([
+        'import importlib',
+        'import ignite.igniteLimbUI as limbUI',
+        'importlib.reload(limbUI)',
+        'limbUI.limb_ui()',
+    ])
+
     def __init__(self):
         self._reset_shelf()
         self._build()
+
+    def shelf_buttons(self):
+        return [
+            {'label': 'IgSpine Creator', 'command': self.SPINE_CMD},
+            {'label': 'IgLimb Creator', 'command': self.LIMB_CMD},
+        ]
 
     def _reset_shelf(self):
         if cmds.shelfLayout(self.NAME, exists=True):
@@ -42,7 +43,7 @@ class igniteShelf(object):
         cmds.shelfLayout(self.NAME, p='ShelfLayout')
 
     def _build(self):
-        for entry in SHELF_BUTTONS:
+        for entry in self.shelf_buttons():
             if entry.get('separator'):
                 self._add_separator()
             else:
