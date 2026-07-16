@@ -250,17 +250,29 @@ def change_base_name(side_txt, part_txt, base_txt):
 
 # Collapsing tab frames
 def collapse(window, frame_layout, height):
-    window_height = cmds.window(window, query=True, height=True)
-    frame_height = cmds.frameLayout(frame_layout, query=True, height=True)
-    cmds.window(window, edit=True, height=window_height - height + 30)
-    cmds.frameLayout(frame_layout, edit=True, height=frame_height - height + 30)
+    # set the collapsed size outright instead of subtracting from the
+    # current size, the relative math drifts whenever the queried height
+    # is not exactly what the last click set and the spacing grows forever
+    cmds.frameLayout(frame_layout, edit=True, height=30)
+    fit_window(window, frame_layout)
 
 
 def expand(window, frame_layout, height):
-    window_height = cmds.window(window, query=True, height=True)
-    frame_height = cmds.frameLayout(frame_layout, query=True, height=True)
-    cmds.window(window, edit=True, height=window_height + height - 30)
-    cmds.frameLayout(frame_layout, edit=True, height=frame_height + height - 30)
+    # restore the frame's full design height outright
+    cmds.frameLayout(frame_layout, edit=True, height=height)
+    fit_window(window, frame_layout)
+
+
+def fit_window(window, frame_layout):
+    # size the main column and the window to what the frames actually
+    # measure right now, so repeated collapsing and expanding can never
+    # leave extra spacing behind
+    main_layout = cmds.frameLayout(frame_layout, query=True, parent=True)
+    total = 0
+    for child in cmds.layout(main_layout, query=True, childArray=True):
+        total += cmds.control(child, query=True, height=True)
+    cmds.layout(main_layout, edit=True, height=total)
+    cmds.window(window, edit=True, height=total)
 
 
 def build_spine_guides(mid_count_field):
