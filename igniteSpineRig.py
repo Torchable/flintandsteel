@@ -211,12 +211,16 @@ def spine(side='C', part='spine', pelvis_guide=None, chest_guide=None,
                                       sel=[settings_ctrl, ik_chain[-1]])
     cmds.setAttr(settings_ctrl + '.scale', r * 0.25, r * 0.25, r * 0.25)
     if up_axis[0] == '-':
-        cmds.setAttr(settings_ctrl + '.translate' + up_axis[-1], r * -1.5)
+        cmds.pointConstraint(bind_chain[-1],bind_chain[0], settings_ctrl, maintainOffset=False)
+        cmds.delete('*_settings_CTRL_pointConstraint1')
+        cmds.setAttr(settings_ctrl + '.translate' + up_axis[-1], r * -2)
     else:
-        cmds.setAttr(settings_ctrl + '.translate' + up_axis[-1], r * 1.5)
+        cmds.pointConstraint(bind_chain[-1],bind_chain[0], settings_ctrl, maintainOffset=False)
+        cmds.delete('*_settings_CTRL_pointConstraint1')
+        cmds.setAttr(settings_ctrl + '.translate' + up_axis[-1], r * 2)
     cmds.makeIdentity(settings_ctrl, apply=True, translate=True, rotate=True,
                       scale=True, normal=False)
-    cmds.pointConstraint(bind_chain[-1], settings_ctrl, maintainOffset=True)
+    cmds.pointConstraint(bind_chain[-1], bind_chain[0], settings_ctrl, maintainOffset=True)
 
     cmds.addAttr(settings_ctrl, attributeType='double', min=0, max=1,
                  defaultValue=1, keyable=True, longName='fkIk')
